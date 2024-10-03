@@ -47,7 +47,7 @@
 	"dependencies": {
 		"@automattic/typography": "1.0.0",
 		"@preact/signals": "^1.2.2",
-		"@sentry/browser": "7.80.1",
+		"@sentry/browser": "8.33.0",
 		"@wordpress/api-fetch": "6.52.0",
 		"@wordpress/base-styles": "4.46.0",
 		"@wordpress/components": "27.3.0",
