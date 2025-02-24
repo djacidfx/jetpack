@@ -9,10 +9,12 @@ namespace Automattic\Jetpack\Waf;
 
 require_once __DIR__ . '/functions.php';
 
+<<<PHAN
+@phan-type RequestFile = array{ name: string, filename: string }
+PHAN;
+
 /**
  * Request representation.
- *
- * @template RequestFile as array{ name: string, filename: string }
  */
 class Waf_Request {
 	/**
@@ -20,7 +22,7 @@ class Waf_Request {
 	 *
 	 * @example for `https://wordpress.com/index.php?myvar=red`
 	 *          $this->url = [ 'https://wordpress.com', '/index.php', '?myvar=red' ]
-	 * @var array{ 0: string, 1: string, 2: string }|null
+	 * @var array{0: string, 1: string, 2: string}|null
 	 */
 	protected $url = null;
 
@@ -117,7 +119,7 @@ class Waf_Request {
 	/**
 	 * Returns the headers that were sent with this request
 	 *
-	 * @return array{ 0: string, 1: scalar }[]
+	 * @return array{0: string, 1: scalar}[]
 	 */
 	public function get_headers() {
 		$value              = array();
@@ -198,7 +200,7 @@ class Waf_Request {
 	 * Returns the URL parts for this request.
 	 *
 	 * @see $this->url
-	 * @return array{ 0: string, 1: string, 2: string }
+	 * @return array{0: string, 1: string, 2: string}
 	 */
 	protected function get_url() {
 		if ( null !== $this->url ) {
@@ -311,7 +313,7 @@ class Waf_Request {
 	/**
 	 * Returns the cookies
 	 *
-	 * @return array<string, string>
+	 * @return array{string, scalar}[]
 	 */
 	public function get_cookies() {
 		return flatten_array( $_COOKIE );
@@ -320,25 +322,65 @@ class Waf_Request {
 	/**
 	 * Returns the GET variables
 	 *
-	 * @return array<string, mixed|array>
+	 * @return array{string, scalar}[]
 	 */
 	public function get_get_vars() {
 		return flatten_array( $_GET );
 	}
 
 	/**
+	 * Returns the POST variables from a JSON body
+	 *
+	 * @return array{string, scalar}[]
+	 */
+	private function get_json_post_vars() {
+		$decoded_json = json_decode( $this->get_body(), true ) ?? array();
+		return flatten_array( $decoded_json, 'json', true );
+	}
+
+	/**
+	 * Returns the POST variables from a urlencoded body
+	 *
+	 * @return array{string, scalar}[]
+	 */
+	private function get_urlencoded_post_vars() {
+		parse_str( $this->get_body(), $params );
+		return flatten_array( $params );
+	}
+
+	/**
 	 * Returns the POST variables
 	 *
-	 * @return array<string, mixed|array>
+	 * @param string $body_processor Manually specifiy the method to use to process the body. Options are 'URLENCODED' and 'JSON'.
+	 *
+	 * @return array{string, scalar}[]
 	 */
-	public function get_post_vars() {
-		// Attempt to decode JSON requests.
-		if ( strpos( $this->get_header( 'content-type' ), 'application/json' ) !== false ) {
-			$decoded_json = json_decode( $this->get_body(), true ) ?? array();
-			return flatten_array( $decoded_json, 'json', true );
+	public function get_post_vars( string $body_processor = '' ) {
+		$content_type = $this->get_header( 'content-type' );
+
+		// If the body processor is specified by the rules file, trust it.
+		if ( 'URLENCODED' === $body_processor ) {
+			return $this->get_urlencoded_post_vars();
+		}
+		if ( 'JSON' === $body_processor ) {
+			return $this->get_json_post_vars();
 		}
 
-		return flatten_array( $_POST );
+		// Otherwise, use $_POST if it's not empty.
+		if ( ! empty( $_POST ) ) {
+			return flatten_array( $_POST );
+		}
+
+		// Lastly, try to parse the body based on the content type.
+		if ( strpos( $content_type, 'application/json' ) !== false ) {
+			return $this->get_json_post_vars();
+		}
+		if ( strpos( $content_type, 'application/x-www-form-urlencoded' ) !== false ) {
+			return $this->get_urlencoded_post_vars();
+		}
+
+		// Don't try to parse any other content types.
+		return array();
 	}
 
 	/**

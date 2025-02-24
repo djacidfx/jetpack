@@ -1,28 +1,7 @@
+const webpack = require( 'webpack' );
 const path = require( 'path' );
-// eslint-disable-next-line import/no-extraneous-dependencies
 const jetpackWebpackConfig = require( '@automattic/jetpack-webpack-config/webpack' );
-// eslint-disable-next-line import/no-extraneous-dependencies
 const CopyPlugin = require( 'copy-webpack-plugin' );
-
-const isProduction = process.env.NODE_ENV === 'production';
-
-const cssGenPath = path.dirname(
-	path.dirname( require.resolve( 'jetpack-boost-critical-css-gen' ) )
-);
-
-const cssGenCopyPatterns = [
-	{
-		from: path.join( cssGenPath, 'dist/bundle.js' ),
-		to: 'critical-css-gen.js',
-	},
-];
-
-if ( ! isProduction ) {
-	cssGenCopyPatterns.push( {
-		from: path.join( cssGenPath, 'dist/bundle.js.map' ),
-		to: 'critical-css-gen.js.map',
-	} );
-}
 
 const imageGuideCopyPatterns = [
 	{
@@ -50,6 +29,9 @@ module.exports = [
 		},
 		optimization: {
 			...jetpackWebpackConfig.optimization,
+			splitChunks: {
+				minChunks: 2,
+			},
 		},
 		resolve: {
 			...jetpackWebpackConfig.resolve,
@@ -62,6 +44,20 @@ module.exports = [
 				$css: path.resolve( './app/assets/src/css' ),
 				$images: path.resolve( './app/assets/static/images' ),
 			},
+			// These are needed for the build to work,
+			// otherwise it errors out because of the clean-css dependency.
+			fallback: {
+				...jetpackWebpackConfig.resolve.fallback,
+				path: require.resolve( 'path-browserify' ),
+				process: require.resolve( 'process/browser' ),
+				url: false,
+				https: false,
+				http: false,
+				os: false,
+				buffer: false,
+				events: false,
+				fs: false,
+			},
 		},
 		node: false,
 		plugins: [
@@ -69,9 +65,10 @@ module.exports = [
 				MiniCssExtractPlugin: {
 					filename: 'jetpack-boost.css',
 				},
-				DependencyExtractionPlugin: { injectPolyfill: true },
 			} ),
-			new CopyPlugin( { patterns: cssGenCopyPatterns } ),
+			new webpack.ProvidePlugin( {
+				process: require.resolve( 'process/browser' ),
+			} ),
 		],
 		module: {
 			strictExportPresence: true,
@@ -129,9 +126,7 @@ module.exports = [
 		},
 		node: false,
 		plugins: [
-			...jetpackWebpackConfig.StandardPlugins( {
-				DependencyExtractionPlugin: { injectPolyfill: true },
-			} ),
+			...jetpackWebpackConfig.StandardPlugins(),
 			new CopyPlugin( { patterns: imageGuideCopyPatterns } ),
 		],
 		module: {
@@ -148,6 +143,41 @@ module.exports = [
 			jetpackConfig: JSON.stringify( {
 				consumer_slug: 'jetpack-boost',
 			} ),
+		},
+	},
+
+	/**
+	 * LIAR - Lazy Image Auto Resizer
+	 */
+	{
+		entry: {
+			inlineScript: './app/modules/optimizations/image-cdn/src/liar.ts',
+		},
+		mode: jetpackWebpackConfig.mode,
+		devtool: jetpackWebpackConfig.devtool,
+		output: {
+			path: path.resolve( './app/modules/optimizations/image-cdn/dist' ),
+			filename: 'inline-liar.js',
+		},
+		optimization: {
+			...jetpackWebpackConfig.optimization,
+		},
+		resolve: {
+			...jetpackWebpackConfig.resolve,
+		},
+		node: false,
+		plugins: [ ...jetpackWebpackConfig.StandardPlugins() ],
+		module: {
+			strictExportPresence: true,
+			rules: [
+				// Transpile JavaScript
+				jetpackWebpackConfig.TranspileRule( {
+					exclude: /node_modules\//,
+				} ),
+			],
+		},
+		externals: {
+			...jetpackWebpackConfig.externals,
 		},
 	},
 ];

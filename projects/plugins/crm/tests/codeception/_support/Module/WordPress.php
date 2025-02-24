@@ -43,14 +43,14 @@ class WordPress extends Framework implements DependsOnModule {
 	 *
 	 * @var array<string>
 	 */
-	protected $requiredFields = array( 'wpRootFolder', 'adminUsername', 'adminPassword' );
+	protected array $requiredFields = array( 'wpRootFolder', 'adminUsername', 'adminPassword' ); // phpcs:ignore WordPress.NamingConventions.ValidVariableName.PropertyNotSnakeCase
 
 	/**
 	 * The default module configuration.
 	 *
 	 * @var array<string,mixed>
 	 */
-	protected $config = array( 'adminPath' => '/wp-admin' );
+	protected array $config = array( 'adminPath' => '/wp-admin' );
 
 	/**
 	 * @var bool
@@ -115,7 +115,7 @@ EOF;
 	public function __construct(
 		ModuleContainer $moduleContainer,
 		$config = array(),
-		WordPressConnector $client = null
+		?WordPressConnector $client = null
 	) {
 		parent::__construct( $moduleContainer, $config );
 

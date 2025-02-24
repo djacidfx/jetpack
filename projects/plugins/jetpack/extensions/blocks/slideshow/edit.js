@@ -1,9 +1,15 @@
 import { getBlockIconComponent } from '@automattic/jetpack-shared-extension-utils';
 import { isBlobURL } from '@wordpress/blob';
-import { MediaPlaceholder, BlockControls, InspectorControls } from '@wordpress/block-editor';
+import {
+	MediaPlaceholder,
+	BlockControls,
+	InspectorControls,
+	useBlockProps,
+} from '@wordpress/block-editor';
 import { DropZone, FormFileUpload, withNotices } from '@wordpress/components';
 import { compose } from '@wordpress/compose';
 import { withDispatch, withSelect } from '@wordpress/data';
+import domReady from '@wordpress/dom-ready';
 import { mediaUpload } from '@wordpress/editor';
 import { useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
@@ -11,6 +17,7 @@ import { get, map, pick } from 'lodash';
 import metadata from './block.json';
 import { PanelControls, ToolbarControls } from './controls';
 import Slideshow from './slideshow';
+import applyPaddingForStackBlock from './utils';
 
 import './editor.scss';
 
@@ -39,12 +46,23 @@ export const SlideshowEdit = ( {
 } ) => {
 	const { align, autoplay, delay, effect, images, sizeSlug, ids } = attributes;
 
+	const blockProps = useBlockProps( {
+		className: className,
+	} );
+
 	const setImages = imgs => {
 		setAttributes( {
 			images: imgs,
 			ids: imgs.map( ( { id } ) => parseInt( id, 10 ) ),
 		} );
 	};
+	useEffect( () => {
+		if ( typeof window !== 'undefined' ) {
+			domReady( function () {
+				applyPaddingForStackBlock();
+			} );
+		}
+	}, [] );
 
 	const onSelectImages = imgs =>
 		setImages( imgs.map( image => pickRelevantMediaFiles( image, sizeSlug ) ) );
@@ -107,7 +125,6 @@ export const SlideshowEdit = ( {
 		content = (
 			<MediaPlaceholder
 				icon={ getBlockIconComponent( metadata ) }
-				className={ className }
 				labels={ {
 					title: __( 'Slideshow', 'jetpack' ),
 					instructions: __(
@@ -130,7 +147,6 @@ export const SlideshowEdit = ( {
 				<Slideshow
 					align={ align }
 					autoplay={ autoplay }
-					className={ className }
 					delay={ delay }
 					effect={ effect }
 					images={ images }
@@ -155,7 +171,7 @@ export const SlideshowEdit = ( {
 	}
 
 	return (
-		<>
+		<div { ...blockProps }>
 			<InspectorControls>
 				<PanelControls
 					attributes={ attributes }
@@ -172,7 +188,7 @@ export const SlideshowEdit = ( {
 				/>
 			</BlockControls>
 			{ content }
-		</>
+		</div>
 	);
 };
 

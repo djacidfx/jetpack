@@ -41,6 +41,20 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	}
 
 	/**
+	 * Ensure that Gravatar images are not included in the list of images extracted from the post contents (html).
+	 *
+	 * @since 13.7
+	 */
+	public function test_from_html_gravatar() {
+		$s = '<img class="jetpack-blogging-prompt__answers-gravatar wp-hovercard-attachment grav-hashed grav-hijack" aria-hidden="true" src="https://0.gravatar.com/avatar/89f071d1932fe8c204a3381e00bd6794ddc28bcdb0642f29c9f48beaa5e277af?s=96&d=identicon&r=G">';
+
+		$result = Jetpack_PostImages::from_html( $s );
+
+		$this->assertIsArray( $result );
+		$this->assertEmpty( $result );
+	}
+
+	/**
 	 * Test image size extract in src filename
 	 *
 	 * @covers Jetpack_PostImages::from_html
@@ -67,6 +81,19 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 		$result = Jetpack_PostImages::from_html( $s );
 
 		$this->assertEquals( array(), $result );
+	}
+
+	/**
+	 * @covers Jetpack_PostImages::from_html
+	 */
+	public function test_from_html_alt_utf8() {
+		$s = '<img src="bob.jpg" width="200" height="200" alt="Ḽơᶉëᶆ ȋṕšᶙṁ ḍỡḽǭᵳ ʂǐť ӓṁệẗ" />';
+
+		$result = Jetpack_PostImages::from_html( $s );
+
+		$this->assertIsArray( $result );
+		$this->assertNotEmpty( $result );
+		$this->assertEquals( 'Ḽơᶉëᶆ ȋṕšᶙṁ ḍỡḽǭᵳ ʂǐť ӓṁệẗ', $result[0]['alt_text'] );
 	}
 
 	/**
@@ -336,7 +363,7 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	public function test_from_image_block_from_post_id_is_array() {
 		if ( ! function_exists( 'parse_blocks' ) ) {
 			$this->markTestSkipped( 'parse_blocks not available. Block editor not available' );
-			return;
+			return; // @phan-suppress-current-line PhanPluginUnreachableCode
 		}
 
 		$post_info = $this->get_post_with_image_block();
@@ -355,7 +382,7 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	public function test_from_image_block_from_post_id_is_correct_array() {
 		if ( ! function_exists( 'parse_blocks' ) ) {
 			$this->markTestSkipped( 'parse_blocks not available. Block editor not available' );
-			return;
+			return; // @phan-suppress-current-line PhanPluginUnreachableCode
 		}
 
 		$post_info = $this->get_post_with_image_block();
@@ -377,7 +404,7 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	public function test_from_image_block_from_html_is_empty_array() {
 		if ( ! function_exists( 'parse_blocks' ) ) {
 			$this->markTestSkipped( 'parse_blocks not available. Block editor not available' );
-			return;
+			return; // @phan-suppress-current-line PhanPluginUnreachableCode
 		}
 
 		$html = '<!-- wp:image --><div class="wp-block-image"><figure class="wp-block-image"><img src="https://example.com/image.jpg" alt=""/></figure></div><!-- /wp:image -->';
@@ -463,7 +490,7 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	public function test_from_gallery_block_from_post_id_is_correct_array() {
 		if ( ! function_exists( 'parse_blocks' ) ) {
 			$this->markTestSkipped( 'parse_blocks not available. Block editor not available' );
-			return;
+			return; // @phan-suppress-current-line PhanPluginUnreachableCode
 		}
 
 		$post_info = $this->get_post_with_gallery_block();
@@ -557,7 +584,7 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	public function test_from_columns_block_from_post_id_is_array() {
 		if ( ! function_exists( 'parse_blocks' ) ) {
 			$this->markTestSkipped( 'parse_blocks not available. Block editor not available' );
-			return;
+			return; // @phan-suppress-current-line PhanPluginUnreachableCode
 		}
 
 		$post_info = $this->get_post_with_columns_block();
@@ -577,7 +604,7 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	public function test_from_columns_block_from_post_id_is_correct_array() {
 		if ( ! function_exists( 'parse_blocks' ) ) {
 			$this->markTestSkipped( 'parse_blocks not available. Block editor not available' );
-			return;
+			return; // @phan-suppress-current-line PhanPluginUnreachableCode
 		}
 
 		$post_info = $this->get_post_with_columns_block();
@@ -599,7 +626,7 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	public function test_from_columns_block_from_html_is_empty_array() {
 		if ( ! function_exists( 'parse_blocks' ) ) {
 			$this->markTestSkipped( 'parse_blocks not available. Block editor not available' );
-			return;
+			return; // @phan-suppress-current-line PhanPluginUnreachableCode
 		}
 
 		$html = '<!-- wp:columns --><div class="wp-block-columns has-2-columns"><!-- wp:column --><div class="wp-block-column"><!-- wp:image --><figure class="wp-block-image"><img src="https://example.com/image.jpg" alt=""/></figure><!-- /wp:image --></div><!-- /wp:column --><!-- wp:column --><div class="wp-block-column"><!-- wp:paragraph --><p>Some text</p><!-- /wp:paragraph --></div><!-- /wp:column --></div><!-- /wp:columns -->';
@@ -728,7 +755,7 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	public function test_from_story_block_from_post_id_is_correct_array_no_videopress() {
 		if ( ! function_exists( 'parse_blocks' ) ) {
 			$this->markTestSkipped( 'parse_blocks not available. Block editor not available' );
-			return;
+			return; // @phan-suppress-current-line PhanPluginUnreachableCode
 		}
 
 		$media_types = array( 'image', 'video' );
@@ -754,7 +781,7 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	public function test_from_story_block_from_post_id_is_correct_array_videopress() {
 		if ( ! function_exists( 'parse_blocks' ) ) {
 			$this->markTestSkipped( 'parse_blocks not available. Block editor not available' );
-			return;
+			return; // @phan-suppress-current-line PhanPluginUnreachableCode
 		}
 
 		$media_types = array( 'image', 'videopress' );
@@ -782,7 +809,7 @@ class WP_Test_Jetpack_PostImages extends WP_UnitTestCase {
 	public function test_from_story_block_from_post_id_is_correct_array_videopress_wpcom() {
 		if ( ! function_exists( 'parse_blocks' ) ) {
 			$this->markTestSkipped( 'parse_blocks not available. Block editor not available' );
-			return;
+			return; // @phan-suppress-current-line PhanPluginUnreachableCode
 		}
 
 		$media_types = array( 'image', 'videopress' );

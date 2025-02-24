@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import StatCard from '../index';
+import StatCard from '../index.js';
 
 describe( 'StatCard', () => {
 	const testProps = {
@@ -12,11 +12,6 @@ describe( 'StatCard', () => {
 		it( 'renders the compact value', () => {
 			render( <StatCard { ...testProps } variant="square" /> );
 			expect( screen.getByText( '1.8K' ) ).toBeInTheDocument();
-
-			// @todo Remove this once WordPress 6.4 is the minimum.
-			expect( console ).toHaveWarned(
-				'`position` prop in wp.components.tooltip is deprecated since version 6.4. Please use `placement` prop instead.'
-			);
 		} );
 	} );
 

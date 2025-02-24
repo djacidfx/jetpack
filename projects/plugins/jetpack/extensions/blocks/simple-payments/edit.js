@@ -1,5 +1,5 @@
 import { getCurrencyDefaults } from '@automattic/format-currency';
-import { InspectorControls } from '@wordpress/block-editor';
+import { InspectorControls, useBlockProps } from '@wordpress/block-editor';
 import {
 	Disabled,
 	ExternalLink,
@@ -13,7 +13,7 @@ import { dispatch, withSelect } from '@wordpress/data';
 import { useEffect, useRef, useState } from '@wordpress/element';
 import { __, _n, sprintf } from '@wordpress/i18n';
 import { getWidgetIdFromBlock } from '@wordpress/widgets';
-import classNames from 'classnames';
+import clsx from 'clsx';
 import emailValidator from 'email-validator';
 import { get, isEmpty, pick, trimEnd } from 'lodash';
 import HelpMessage from '../../shared/help-message';
@@ -53,6 +53,8 @@ export const SimplePaymentsEdit = ( {
 	 * local state.
 	 */
 	const isDisabled = productId && isEmpty( simplePayment );
+
+	const blockProps = useBlockProps();
 
 	const [ fieldEmailError, setFieldEmailError ] = useState( null );
 	const [ fieldPriceError, setFieldPriceError ] = useState( null );
@@ -170,7 +172,7 @@ export const SimplePaymentsEdit = ( {
 	 * This method does not include validation UI. Currency selection should not allow for invalid
 	 * values. It is primarily to ensure that the currency is valid to save.
 	 *
-	 * @returns  {boolean} True if currency is valid
+	 * @return  {boolean} True if currency is valid
 	 */
 	const validateCurrency = () => SUPPORTED_CURRENCY_LIST.includes( currency );
 
@@ -179,11 +181,9 @@ export const SimplePaymentsEdit = ( {
 	 *
 	 * Stores error message in state.fieldPriceError
 	 *
-	 * @returns {boolean} True when valid, false when invalid
+	 * @return {boolean} True when valid, false when invalid
 	 */
 	const validatePrice = () => {
-		const { precision } = getCurrencyDefaults( currency );
-
 		if ( ! price || parseFloat( price ) === 0 ) {
 			setFieldPriceError(
 				__( 'If you’re selling something, you need a price tag. Add yours here.', 'jetpack' )
@@ -206,6 +206,7 @@ export const SimplePaymentsEdit = ( {
 			return false;
 		}
 
+		const { precision } = getCurrencyDefaults( currency );
 		if ( decimalPlaces( price ) > precision ) {
 			if ( precision === 0 ) {
 				setFieldPriceError(
@@ -244,7 +245,7 @@ export const SimplePaymentsEdit = ( {
 	 *
 	 * Stores error message in state.fieldEmailError
 	 *
-	 * @returns {boolean} True when valid, false when invalid
+	 * @return {boolean} True when valid, false when invalid
 	 */
 	const validateEmail = () => {
 		if ( ! email ) {
@@ -277,7 +278,7 @@ export const SimplePaymentsEdit = ( {
 	 *
 	 * Stores error message in state.fieldTitleError
 	 *
-	 * @returns {boolean} True when valid, false when invalid
+	 * @return {boolean} True when valid, false when invalid
 	 */
 	const validateTitle = () => {
 		if ( ! title ) {
@@ -426,7 +427,7 @@ export const SimplePaymentsEdit = ( {
 		const Wrapper = isDisabled ? Disabled : 'div';
 
 		elt = (
-			<Wrapper className="wp-block-jetpack-simple-payments">
+			<Wrapper className="simple-payments__wrapper">
 				<InspectorControls>
 					<PanelControls postLinkText={ attributes.postLinkText } setAttributes={ setAttributes } />
 				</InspectorControls>
@@ -435,8 +436,10 @@ export const SimplePaymentsEdit = ( {
 				/>
 				<div>
 					<TextControl
+						__nextHasNoMarginBottom={ true }
+						__next40pxDefaultSize
 						aria-describedby={ `${ instanceId }-title-error` }
-						className={ classNames( 'simple-payments__field', 'simple-payments__field-title', {
+						className={ clsx( 'simple-payments__field', 'simple-payments__field-title', {
 							'simple-payments__field-has-error': fieldTitleError,
 						} ) }
 						label={ __( 'Item name', 'jetpack' ) }
@@ -451,6 +454,7 @@ export const SimplePaymentsEdit = ( {
 					</HelpMessage>
 
 					<TextareaControl
+						__nextHasNoMarginBottom={ true }
 						className="simple-payments__field simple-payments__field-content"
 						label={ __( 'Describe your item in a few words', 'jetpack' ) }
 						onChange={ handleContentChange }
@@ -461,6 +465,8 @@ export const SimplePaymentsEdit = ( {
 
 					<div className="simple-payments__price-container">
 						<SelectControl
+							__nextHasNoMarginBottom={ true }
+							__next40pxDefaultSize
 							className="simple-payments__field simple-payments__field-currency"
 							label={ __( 'Currency', 'jetpack' ) }
 							onChange={ handleCurrencyChange }
@@ -468,8 +474,10 @@ export const SimplePaymentsEdit = ( {
 							value={ currency }
 						/>
 						<TextControl
+							__nextHasNoMarginBottom={ true }
+							__next40pxDefaultSize
 							aria-describedby={ `${ instanceId }-price-error` }
-							className={ classNames( 'simple-payments__field', 'simple-payments__field-price', {
+							className={ clsx( 'simple-payments__field', 'simple-payments__field-price', {
 								'simple-payments__field-has-error': fieldPriceError,
 							} ) }
 							label={ __( 'Price', 'jetpack' ) }
@@ -487,6 +495,7 @@ export const SimplePaymentsEdit = ( {
 
 					<div className="simple-payments__field-multiple">
 						<ToggleControl
+							__nextHasNoMarginBottom={ true }
 							checked={ Boolean( multiple ) }
 							label={ __( 'Allow people to buy more than one item at a time', 'jetpack' ) }
 							onChange={ handleMultipleChange }
@@ -494,8 +503,10 @@ export const SimplePaymentsEdit = ( {
 					</div>
 
 					<TextControl
+						__nextHasNoMarginBottom={ true }
+						__next40pxDefaultSize
 						aria-describedby={ `${ instanceId }-email-${ fieldEmailError ? 'error' : 'help' }` }
-						className={ classNames( 'simple-payments__field', 'simple-payments__field-email', {
+						className={ clsx( 'simple-payments__field', 'simple-payments__field-email', {
 							'simple-payments__field-has-error': fieldEmailError,
 						} ) }
 						label={ __( 'Email', 'jetpack' ) }
@@ -523,7 +534,7 @@ export const SimplePaymentsEdit = ( {
 		);
 	}
 
-	return elt;
+	return <div { ...blockProps }>{ elt }</div>;
 };
 
 const mapSelectToProps = withSelect( ( select, props ) => {

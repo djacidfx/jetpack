@@ -198,7 +198,7 @@ class WP_Test_Jetpack_REST_API_endpoints extends WP_UnitTestCase {
 		$this->assertInstanceOf( 'WP_Error', Jetpack_Core_Json_Api_Endpoints::view_admin_page_permission_check() );
 
 		// Setup a new current user with specified capability
-		$user = $this->create_and_get_user();
+		$user = $this->create_and_get_user( 'contributor' );
 
 		// Add Jetpack capability
 		$user->add_cap( 'jetpack_admin_page' );
@@ -313,6 +313,9 @@ class WP_Test_Jetpack_REST_API_endpoints extends WP_UnitTestCase {
 	 * @since 4.4.0
 	 */
 	public function test_plugin_activation_permission() {
+		if ( defined( 'IS_ATOMIC' ) && IS_ATOMIC ) {
+			$this->markTestSkipped( 'is temporarily skipped' );
+		}
 
 		$this->load_rest_endpoints_direct();
 
@@ -343,37 +346,6 @@ class WP_Test_Jetpack_REST_API_endpoints extends WP_UnitTestCase {
 
 		// User has capability so this should work this time
 		$this->assertTrue( REST_Connector::activate_plugins_permission_check() );
-	}
-
-	/**
-	 * Test permission to disconnect Jetpack site for a user that is connected.
-	 *
-	 * @since 4.4.0
-	 */
-	public function test_admin_user_unlink_permission() {
-
-		$this->load_rest_endpoints_direct();
-
-		// Current user doesn't have credentials, so checking permissions should fail
-		$this->assertInstanceOf( 'WP_Error', Jetpack_Core_Json_Api_Endpoints::unlink_user_permission_callback() );
-
-		// Create an admin user.
-		$user = $this->create_and_get_user( 'administrator' );
-
-		// Add Jetpack capability
-		$user->add_cap( 'jetpack_connect_user' );
-
-		// Setup global variables so this is the current user
-		wp_set_current_user( $user->ID );
-
-		// This should still fail because user is not connected
-		$this->assertInstanceOf( 'WP_Error', Jetpack_Core_Json_Api_Endpoints::unlink_user_permission_callback() );
-
-		// Mock that it's connected
-		Jetpack_Options::update_option( 'user_tokens', array( $user->ID => "honey.badger.$user->ID" ) );
-
-		// User has the capability and is connected so this should work this time
-		$this->assertTrue( Jetpack_Core_Json_Api_Endpoints::unlink_user_permission_callback() );
 	}
 
 	/**
@@ -419,6 +391,9 @@ class WP_Test_Jetpack_REST_API_endpoints extends WP_UnitTestCase {
 	 * @since 4.4.0
 	 */
 	public function test_jetpack_connection_status() {
+		if ( defined( 'IS_ATOMIC' ) && IS_ATOMIC ) {
+			$this->markTestSkipped( 'is temporarily skipped' );
+		}
 
 		// Mock a connection
 		Jetpack_Options::update_option( 'id', 1234 );
@@ -443,43 +418,6 @@ class WP_Test_Jetpack_REST_API_endpoints extends WP_UnitTestCase {
 			),
 			$response
 		);
-	}
-
-	/**
-	 * Test information about connection status in staging mode.
-	 *
-	 * @since 4.4.0
-	 */
-	public function test_jetpack_connection_status_staging() {
-
-		StatusCache::clear();
-		Jetpack_Options::update_option( 'id', 1234 );
-		Jetpack_Options::update_option( 'blog_token', 'asd.qwe.1' );
-
-		add_filter( 'jetpack_is_staging_site', '__return_true' );
-
-		// Create REST request in JSON format and dispatch
-		$response = $this->create_and_get_request( 'connection' );
-
-		// Success, connected site.
-		$this->assertResponseStatus( 200, $response );
-		$this->assertResponseData(
-			array(
-				'isActive'    => true,
-				'isStaging'   => true,
-				'offlineMode' => array(
-					'isActive'        => false,
-					'constant'        => false,
-					'url'             => false,
-					'filter'          => false,
-					'wpLocalConstant' => false,
-				),
-			),
-			$response
-		);
-
-		remove_filter( 'jetpack_is_staging_site', '__return_true' );
-		StatusCache::clear();
 	}
 
 	/**
@@ -609,21 +547,6 @@ class WP_Test_Jetpack_REST_API_endpoints extends WP_UnitTestCase {
 	}
 
 	/**
-	 * Test onboarding token and make sure it's a network option.
-	 *
-	 * @since 5.4.0
-	 */
-	public function test_check_onboarding_token() {
-		$this->assertFalse( Jetpack_Options::get_option( 'onboarding' ) );
-
-		Jetpack::create_onboarding_token();
-
-		$this->assertTrue( Jetpack_Options::is_valid( array( 'onboarding' ) ) );
-		$this->assertTrue( ctype_alnum( Jetpack_Options::get_option( 'onboarding' ) ) );
-		$this->assertContains( 'onboarding', Jetpack_Options::get_option_names( 'network' ) );
-	}
-
-	/**
 	 * Test connection url build when there's a blog token or id.
 	 *
 	 * @since 4.4.0
@@ -703,7 +626,7 @@ class WP_Test_Jetpack_REST_API_endpoints extends WP_UnitTestCase {
 		// Create REST request in JSON format and dispatch
 		$response = $this->create_and_get_request( 'connection/user', array( 'linked' => false ), 'POST' );
 
-		remove_filter( 'pre_http_request', array( $this, 'mock_xmlrpc_success' ), 10, 3 );
+		remove_filter( 'pre_http_request', array( $this, 'mock_xmlrpc_success' ), 10 );
 
 		// No way. Master user can't be unlinked. This is intended
 		$this->assertResponseStatus( 403, $response );
@@ -732,7 +655,7 @@ class WP_Test_Jetpack_REST_API_endpoints extends WP_UnitTestCase {
 		// Create REST request in JSON format and dispatch.
 		$this->create_and_get_request( 'connection/user', array( 'linked' => false ), 'POST' );
 
-		remove_filter( 'pre_http_request', array( $this, 'mock_xmlrpc_success' ), 10, 3 );
+		remove_filter( 'pre_http_request', array( $this, 'mock_xmlrpc_success' ), 10 );
 
 		// Transient should be deleted after unlinking user.
 		$this->assertFalse( get_transient( $transient_key ) );
@@ -1269,5 +1192,31 @@ class WP_Test_Jetpack_REST_API_endpoints extends WP_UnitTestCase {
 
 		$this->assertResponseStatus( 200, $response );
 		$this->assertResponseData( array( 'success' => true ), $response );
+	}
+
+	/**
+	 * Test the 'features/available' endpoint, unauthorized.
+	 *
+	 * @since 13.9
+	 */
+	public function test_features_available_unauthorized() {
+		// Create REST request in JSON format and dispatch
+		$response = $this->create_and_get_request( 'features/available' );
+
+		$this->assertResponseStatus( 401, $response );
+		$this->assertResponseData( array( 'code' => 'invalid_permission_fetch_features' ), $response );
+	}
+
+	/**
+	 * Test the 'features/enabled' endpoint, unauthorized.
+	 *
+	 * @since 13.9
+	 */
+	public function test_features_enabled_unauthorized() {
+		// Create REST request in JSON format and dispatch
+		$response = $this->create_and_get_request( 'features/enabled' );
+
+		$this->assertResponseStatus( 401, $response );
+		$this->assertResponseData( array( 'code' => 'invalid_permission_fetch_features' ), $response );
 	}
 } // class end

@@ -1,6 +1,7 @@
 <?php
 
 use Automattic\Jetpack\Constants;
+use Automattic\Jetpack\Sync\Modules;
 
 require_once __DIR__ . '/test_class.jetpack-sync-plugins.php';
 require_once __DIR__ . '/class.silent-upgrader-skin.php';
@@ -8,7 +9,7 @@ require_once __DIR__ . '/class.silent-upgrader-skin.php';
 /**
  * Testing CRUD on Plugins
  */
-class WP_Test_Jetpack_Sync_Plugins_Updates extends WP_Test_Jetpack_Sync_Base {
+class WP_Test_Jetpack_Sync_Plugins_Updates extends WP_Test_Jetpack_Sync_TestBase {
 
 	/**
 	 * Set up.
@@ -50,18 +51,28 @@ class WP_Test_Jetpack_Sync_Plugins_Updates extends WP_Test_Jetpack_Sync_Base {
 
 	public function test_updating_a_plugin_is_synced() {
 		$this->update_the_plugin( new Silent_Upgrader_Skin() );
+		$plugins_module = Modules::get_module( 'plugins' );
+		'@phan-var \Automattic\Jetpack\Sync\Modules\Plugins $plugins_module';
+		$plugins_module->sync_plugins_updated();
+		$has_action = has_action( 'shutdown', array( $plugins_module, 'sync_plugins_updated' ) );
 		$this->sender->do_sync();
 		$updated_plugin = $this->server_event_storage->get_most_recent_event( 'jetpack_plugins_updated' );
 
 		$this->assertEquals( 'the/the.php', $updated_plugin->args[0][0]['slug'] );
+		$this->assertTrue( (bool) $has_action );
 		$this->server_event_storage->reset();
 	}
 
 	public function test_updating_plugin_in_bulk_is_synced() {
 		$this->update_bulk_plugins( new Silent_Upgrader_Skin() );
+		$plugins_module = Modules::get_module( 'plugins' );
+		'@phan-var \Automattic\Jetpack\Sync\Modules\Plugins $plugins_module';
+		$plugins_module->sync_plugins_updated();
+		$has_action = has_action( 'shutdown', array( $plugins_module, 'sync_plugins_updated' ) );
 		$this->sender->do_sync();
 		$updated_plugin = $this->server_event_storage->get_most_recent_event( 'jetpack_plugins_updated' );
 		$this->assertEquals( 'the/the.php', $updated_plugin->args[0][0]['slug'] );
+		$this->assertTrue( (bool) $has_action );
 		$this->server_event_storage->reset();
 	}
 
@@ -71,7 +82,7 @@ class WP_Test_Jetpack_Sync_Plugins_Updates extends WP_Test_Jetpack_Sync_Base {
 		 * when it encounters an error so right now we do not have a way to hook into why a plugin failed.
 		 */
 		$this->markTestIncomplete( "Right now this doesn't work." );
-
+		// @phan-suppress-next-line PhanPluginUnreachableCode
 		$this->server_event_storage->reset();
 		$plugin_defaults = array(
 			'title'  => '',
@@ -121,9 +132,14 @@ class WP_Test_Jetpack_Sync_Plugins_Updates extends WP_Test_Jetpack_Sync_Base {
 	public function test_updating_with_autoupdate_constant_results_in_proper_state() {
 		Constants::set_constant( 'JETPACK_PLUGIN_AUTOUPDATE', true );
 		$this->update_bulk_plugins( new Silent_Upgrader_Skin() );
+		$plugins_module = Modules::get_module( 'plugins' );
+		'@phan-var \Automattic\Jetpack\Sync\Modules\Plugins $plugins_module';
+		$plugins_module->sync_plugins_updated();
+		$has_action = has_action( 'shutdown', array( $plugins_module, 'sync_plugins_updated' ) );
 		$this->sender->do_sync();
 		$updated_plugin = $this->server_event_storage->get_most_recent_event( 'jetpack_plugins_updated' );
 		$this->assertTrue( $updated_plugin->args[1]['is_autoupdate'] );
+		$this->assertTrue( (bool) $has_action );
 		$this->server_event_storage->reset();
 	}
 
@@ -131,11 +147,11 @@ class WP_Test_Jetpack_Sync_Plugins_Updates extends WP_Test_Jetpack_Sync_Base {
 		require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
 		require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
 		add_filter( 'site_transient_update_plugins', array( $this, 'set_update_plugin_transient' ) );
-		add_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_Base', 'pre_http_request_wordpress_org_updates' ), 10, 3 );
+		add_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_TestBase', 'pre_http_request_wordpress_org_updates' ), 10, 3 );
 		$upgrader = new Plugin_Upgrader( $skin );
 		// 'https://downloads.wordpress.org/plugin/the.1.1.zip' Install it from local disk
 		$upgrader->upgrade( 'the/the.php' );
-		remove_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_Base', 'pre_http_request_wordpress_org_updates' ) );
+		remove_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_TestBase', 'pre_http_request_wordpress_org_updates' ) );
 		remove_filter( 'site_transient_update_plugins', array( $this, 'set_update_plugin_transient' ) );
 	}
 
@@ -143,10 +159,10 @@ class WP_Test_Jetpack_Sync_Plugins_Updates extends WP_Test_Jetpack_Sync_Base {
 		require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
 		require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
 		add_filter( 'site_transient_update_plugins', array( $this, 'set_update_plugin_transient' ) );
-		add_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_Base', 'pre_http_request_wordpress_org_updates' ), 10, 3 );
+		add_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_TestBase', 'pre_http_request_wordpress_org_updates' ), 10, 3 );
 		$upgrader = new Plugin_Upgrader( $skin );
 		$upgrader->bulk_upgrade( array( 'the/the.php' ) );
-		remove_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_Base', 'pre_http_request_wordpress_org_updates' ) );
+		remove_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_TestBase', 'pre_http_request_wordpress_org_updates' ) );
 		remove_filter( 'site_transient_update_plugins', array( $this, 'set_update_plugin_transient' ) );
 	}
 

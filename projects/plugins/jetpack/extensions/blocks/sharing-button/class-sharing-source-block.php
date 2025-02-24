@@ -296,6 +296,7 @@ abstract class Sharing_Source_Block {
 			$encoded_data_attributes = implode(
 				' ',
 				array_map(
+					/** Format attributes */
 					function ( $data_key, $data_value ) {
 						return sprintf(
 							'data-%s="%s"',
@@ -374,7 +375,7 @@ abstract class Sharing_Source_Block {
 
 		// We set up this custom header to indicate to search engines not to index this page.
 		header( 'X-Robots-Tag: noindex, nofollow' );
-		die();
+		die( 0 );
 	}
 }
 
@@ -498,7 +499,7 @@ class Share_Email_Block extends Sharing_Source_Block {
 			wp_send_json_success();
 		} else {
 			wp_safe_redirect( get_permalink( $post->ID ) . '?shared=email&msg=fail' );
-			exit;
+			exit( 0 );
 		}
 
 		wp_die();
@@ -737,7 +738,7 @@ class Share_Pinterest_Block extends Sharing_Source_Block {
 			parent::redirect_request( $pinterest_url );
 		} else {
 			echo '// share count bumped';
-			die();
+			die( 0 );
 		}
 	}
 }

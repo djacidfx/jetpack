@@ -57,11 +57,11 @@ class ManagerTest extends TestCase {
 	 */
 	public function set_up() {
 		$this->manager = $this->getMockBuilder( 'Automattic\Jetpack\Connection\Manager' )
-			->setMethods( array( 'get_tokens', 'get_connection_owner_id', 'unlink_user_from_wpcom', 'update_connection_owner_wpcom', 'disconnect_site_wpcom' ) )
+			->onlyMethods( array( 'get_tokens', 'get_connection_owner_id', 'unlink_user_from_wpcom', 'update_connection_owner_wpcom', 'disconnect_site_wpcom' ) )
 			->getMock();
 
 		$this->tokens = $this->getMockBuilder( 'Automattic\Jetpack\Connection\Tokens' )
-			->setMethods( array( 'get_access_token', 'disconnect_user' ) )
+			->onlyMethods( array( 'get_access_token', 'disconnect_user' ) )
 			->getMock();
 
 		$this->manager->method( 'get_tokens' )->willReturn( $this->tokens );
@@ -171,7 +171,7 @@ class ManagerTest extends TestCase {
 			$this->manager->api_url( 'another_thing/' )
 		);
 
-		remove_filter( 'jetpack_constant_default_value', array( $this, 'filter_api_constant' ), 10, 2 );
+		remove_filter( 'jetpack_constant_default_value', array( $this, 'filter_api_constant' ), 10 );
 	}
 
 	/**
@@ -371,12 +371,14 @@ class ManagerTest extends TestCase {
 			'offline mode, owner exists, jetpack_disconnect' => array( true, true, 'jetpack_disconnect', array( 'manage_options' ) ),
 			'offline mode, owner exists, jetpack_connect_user' => array( true, true, 'jetpack_connect_user', array( 'do_not_allow' ) ),
 			'offline mode, no owner, jetpack_connect_user' => array( true, false, 'jetpack_connect_user', array( 'do_not_allow' ) ),
+			'offline mode, no owner, jetpack_unlink_user'  => array( true, false, 'jetpack_unlink_user', array( 'do_not_allow' ) ),
 			'offline mode, owner exists, unknown cap'      => array( true, true, 'unknown_cap', self::DEFAULT_TEST_CAPS ),
 			'not offline mode, owner exists, jetpack_connect' => array( false, true, 'jetpack_connect', array( 'manage_options' ) ),
 			'not offline mode, owner exists, jetpack_reconnect' => array( false, true, 'jetpack_reconnect', array( 'manage_options' ) ),
 			'not offline mode, owner exists, jetpack_disconnect' => array( false, true, 'jetpack_disconnect', array( 'manage_options' ) ),
 			'not offline mode, owner exists, jetpack_connect_user' => array( false, true, 'jetpack_connect_user', array( 'read' ) ),
 			'not offline mode, no owner, jetpack_connect_user' => array( false, false, 'jetpack_connect_user', array( 'manage_options' ) ),
+			'not offline mode, no owner, jetpack_unlink_user' => array( false, false, 'jetpack_unlink_user', array( 'read' ) ),
 			'not offline mode, owner exists, unknown cap'  => array( false, true, 'unknown_cap', self::DEFAULT_TEST_CAPS ),
 		);
 	}
@@ -466,6 +468,35 @@ class ManagerTest extends TestCase {
 				false,
 			),
 		);
+	}
+
+	/**
+	 * Test disconnecting a user from WordPress.com twice to make sure we don't send excessive requests.
+	 */
+	public function test_disconnect_user_twice() {
+		$editor_id = wp_insert_user(
+			array(
+				'user_login' => 'editor',
+				'user_pass'  => 'pass',
+				'user_email' => 'editor@editor.com',
+				'role'       => 'editor',
+			)
+		);
+		( new Tokens() )->update_user_token( $editor_id, sprintf( '%s.%s.%d', 'key', 'private', $editor_id ), false );
+
+		$this->manager->expects( $this->once() )
+			->method( 'unlink_user_from_wpcom' )
+			->willReturn( true );
+
+		$this->tokens->expects( $this->once() )
+			->method( 'disconnect_user' )
+			->willReturn( true );
+
+		$result_first  = $this->manager->disconnect_user( $editor_id );
+		$result_second = $this->manager->disconnect_user( $editor_id );
+
+		$this->assertTrue( $result_first );
+		$this->assertFalse( $result_second );
 	}
 
 	/**
@@ -686,5 +717,277 @@ class ManagerTest extends TestCase {
 		remove_filter( 'pre_option_jetpack_connection_active_plugins', $option_filter );
 
 		$this->assertTrue( $is_ready );
+	}
+
+	/**
+	 * Test the case when no token nor signature are set in GET parameters.
+	 *
+	 * @return void
+	 */
+	public function test_verify_xml_rpc_signature_returns_false_no_signature() {
+		unset( $_GET['token'] );
+		unset( $_GET['signature'] );
+		$this->assertFalse( $this->manager->verify_xml_rpc_signature() );
+	}
+
+	/**
+	 * Test the case when a token lookup results in an error.
+	 *
+	 * @return void
+	 */
+	public function test_verify_xml_rpc_signature_token_lookup_error() {
+		$_GET['token']     = 'abcde:1:0';
+		$_GET['signature'] = 'bogus signature';
+		Constants::set_constant( 'JETPACK__API_VERSION', 1 );
+
+		$access_token = new WP_Error( 'test_error' );
+		$this->tokens->expects( $this->once() )
+			->method( 'get_access_token' )
+			->willReturn( $access_token );
+
+		$error = null;
+		add_action(
+			'jetpack_verify_signature_error',
+			function ( $e ) use ( &$error ) {
+				$error = $e;
+			}
+		);
+
+		$this->assertFalse( $this->manager->verify_xml_rpc_signature() );
+		$this->assertSame( $access_token, $error );
+	}
+
+	public function signature_data_provider() {
+		return array(
+			array( 'abcde:1:aaa', 'bogus signature', 'malformed_user_id' ),
+			array( 'bogus token', 'bogus signature', 'malformed_token' ),
+			array( 'abcde:1:987', 'bogus signature', 'unknown_user' ),
+			array( 'abcde:1:0', 'bogus signature', 'unknown_token' ),
+		);
+	}
+	/**
+	 * Test the case where internal verification function encounters malformed data.
+	 *
+	 * @dataProvider signature_data_provider
+	 * @param String $token auth token.
+	 * @param String $signature auth signature.
+	 * @param String $error_code the returned error code.
+	 * @return void
+	 */
+	public function test_verify_xml_rpc_signature_malformed_user_id( $token, $signature, $error_code ) {
+		Constants::set_constant( 'JETPACK__API_VERSION', 1 );
+
+		$_GET['token']     = $token;
+		$_GET['signature'] = $signature;
+
+		$error = null;
+		add_action(
+			'jetpack_verify_signature_error',
+			function ( $e ) use ( &$error ) {
+				$error = $e;
+			}
+		);
+
+		$this->assertFalse( $this->manager->verify_xml_rpc_signature() );
+		$this->assertNotNull( $error );
+		$this->assertEquals( $error_code, $error->get_error_code() );
+	}
+
+	/**
+	 * Test disconnecting a user from WordPress.com with force parameter.
+	 *
+	 * @covers Automattic\Jetpack\Connection\Manager::disconnect_user_force
+	 * @dataProvider get_disconnect_user_force_scenarios
+	 *
+	 * @param bool $remote   Was the remote disconnection successful.
+	 * @param bool $local    Was the local disconnection successful.
+	 * @param bool $expected Expected outcome.
+	 */
+	public function test_disconnect_user_force( $remote, $local, $expected ) {
+		$owner_id = wp_insert_user(
+			array(
+				'user_login' => 'owner',
+				'user_pass'  => 'pass',
+				'user_email' => 'owner@owner.com',
+				'role'       => 'administrator',
+			)
+		);
+		( new Tokens() )->update_user_token( $owner_id, sprintf( '%s.%s.%d', 'key', 'private', $owner_id ), false );
+
+		$this->manager->method( 'unlink_user_from_wpcom' )
+			->willReturn( $remote );
+
+		$this->tokens->method( 'disconnect_user' )
+			->willReturn( $local );
+
+		$result = $this->manager->disconnect_user( $owner_id, true );
+
+		$this->assertEquals( $expected, $result );
+	}
+
+	/**
+	 * Test data for test_disconnect_user_force
+	 *
+	 * @return array
+	 */
+	public function get_disconnect_user_force_scenarios() {
+		return array(
+			'Successful remote and local disconnection' => array(
+				true,
+				true,
+				true,
+			),
+			'Failed remote and successful local disconnection' => array(
+				false,
+				true,
+				false,
+			),
+			'Successful remote and failed local disconnection' => array(
+				true,
+				false,
+				false,
+			),
+		);
+	}
+
+	/**
+	 * Test disconnecting all users except the primary (owner) user.
+	 *
+	 * @covers Automattic\Jetpack\Connection\Manager::disconnect_all_users_except_primary
+	 */
+	public function test_disconnect_all_users_except_primary() {
+		// Create owner and connected users
+		$owner_id = wp_insert_user(
+			array(
+				'user_login' => 'owner',
+				'user_pass'  => 'pass',
+				'user_email' => 'owner@owner.com',
+				'role'       => 'administrator',
+			)
+		);
+
+		$editor_id = wp_insert_user(
+			array(
+				'user_login' => 'editor',
+				'user_pass'  => 'pass',
+				'user_email' => 'editor@editor.com',
+				'role'       => 'editor',
+			)
+		);
+
+		$secondary_admin_id = wp_insert_user(
+			array(
+				'user_login' => 'secondary_admin',
+				'user_pass'  => 'pass',
+				'user_email' => 'secondary_admin@secondary_admin.com',
+				'role'       => 'administrator',
+			)
+		);
+
+		// Set up tokens for all users
+		$tokens = new Tokens();
+		$tokens->update_user_token( $owner_id, sprintf( '%s.%s.%d', 'key', 'private', $owner_id ), false );
+		$tokens->update_user_token( $editor_id, sprintf( '%s.%s.%d', 'key', 'private', $editor_id ), false );
+		$tokens->update_user_token( $secondary_admin_id, sprintf( '%s.%s.%d', 'key', 'private', $secondary_admin_id ), false );
+
+		// Mock get_connection_owner_id to return the owner
+		$this->manager->expects( $this->any() )
+			->method( 'get_connection_owner_id' )
+			->willReturn( $owner_id );
+
+		// Mock unlink_user_from_wpcom to succeed for non-owner users
+		$this->manager->expects( $this->exactly( 2 ) )
+			->method( 'unlink_user_from_wpcom' )
+			->willReturn( true );
+
+		// Mock disconnect_user to succeed for non-owner users
+		$this->tokens->expects( $this->exactly( 2 ) )
+			->method( 'disconnect_user' )
+			->willReturn( true );
+
+		// Mock access tokens to return different values based on user
+		$owner_token = (object) array(
+			'secret'           => 'abcd1234',
+			'external_user_id' => 1,
+		);
+
+		$this->tokens->expects( $this->any() )
+			->method( 'get_access_token' )
+			->willReturnCallback(
+				function ( $user_id ) use ( $owner_id, $owner_token ) {
+					return $user_id === $owner_id ? $owner_token : false;
+				}
+			);
+
+		// Run the disconnect
+		$result = $this->manager->disconnect_all_users_except_primary();
+
+		// Verify the result
+		$this->assertTrue( $result );
+
+		// Verify owner is still connected
+		$this->assertTrue( $this->manager->is_user_connected( $owner_id ) );
+
+		// Verify other users are disconnected
+		$this->assertFalse( $this->manager->is_user_connected( $editor_id ) );
+		$this->assertFalse( $this->manager->is_user_connected( $secondary_admin_id ) );
+	}
+
+	/**
+	 * Test disconnecting all users except primary when there's a failure.
+	 *
+	 * @covers Automattic\Jetpack\Connection\Manager::disconnect_all_users_except_primary
+	 */
+	public function test_disconnect_all_users_except_primary_failure() {
+		// Create owner and one other user
+		$owner_id = wp_insert_user(
+			array(
+				'user_login' => 'owner',
+				'user_pass'  => 'pass',
+				'user_email' => 'owner@owner.com',
+				'role'       => 'administrator',
+			)
+		);
+
+		$editor_id = wp_insert_user(
+			array(
+				'user_login' => 'editor',
+				'user_pass'  => 'pass',
+				'user_email' => 'editor@editor.com',
+				'role'       => 'editor',
+			)
+		);
+
+		// Set up tokens
+		$tokens = new Tokens();
+		$tokens->update_user_token( $owner_id, sprintf( '%s.%s.%d', 'key', 'private', $owner_id ), false );
+		$tokens->update_user_token( $editor_id, sprintf( '%s.%s.%d', 'key', 'private', $editor_id ), false );
+
+		// Mock get_connection_owner_id to return the owner
+		$this->manager->method( 'get_connection_owner_id' )
+			->willReturn( $owner_id );
+
+		// Mock unlink_user_from_wpcom to fail
+		$this->manager->method( 'unlink_user_from_wpcom' )
+			->willReturn( false );
+
+		// Mock access tokens for all users
+		$access_token = (object) array(
+			'secret'           => 'abcd1234',
+			'external_user_id' => 1,
+		);
+		$this->tokens->expects( $this->any() )
+			->method( 'get_access_token' )
+			->willReturn( $access_token );
+
+		// Run the disconnect
+		$result = $this->manager->disconnect_all_users_except_primary();
+
+		// Verify the result indicates failure
+		$this->assertFalse( $result );
+
+		// Verify both users are still connected
+		$this->assertTrue( $this->manager->is_user_connected( $owner_id ) );
+		$this->assertTrue( $this->manager->is_user_connected( $editor_id ) );
 	}
 }

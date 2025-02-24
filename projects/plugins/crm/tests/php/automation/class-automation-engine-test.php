@@ -6,16 +6,16 @@ use Automatic\Jetpack\CRM\Automation\Tests\Mocks\Empty_Slug_Trigger;
 use Automattic\Jetpack\CRM\Automation\Automation_Engine;
 use Automattic\Jetpack\CRM\Automation\Automation_Exception;
 use Automattic\Jetpack\CRM\Automation\Triggers\Contact_Created;
-use Automattic\Jetpack\CRM\Tests\JPCRM_Base_Test_Case;
+use Automattic\Jetpack\CRM\Tests\JPCRM_Base_TestCase;
 
 require_once __DIR__ . '/tools/class-automation-faker.php';
 
 /**
  * Test Automation Engine
  *
- * @covers Automattic\Jetpack\CRM\Automation
+ * @covers Automattic\Jetpack\CRM\Automation\Automation_Engine
  */
-class Automation_Engine_Test extends JPCRM_Base_Test_Case {
+class Automation_Engine_Test extends JPCRM_Base_TestCase {
 
 	private $automation_faker;
 

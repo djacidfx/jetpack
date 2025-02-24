@@ -55,7 +55,8 @@ class Dashboard {
 			_x( 'WordAds', 'product name shown in menu', 'jetpack-wordads' ),
 			'manage_options',
 			'jetpack-wordads',
-			array( $this, 'render' )
+			array( $this, 'render' ),
+			12
 		);
 
 		add_action( 'load-' . $page_suffix, array( $this, 'admin_init' ) );
@@ -75,7 +76,7 @@ class Dashboard {
 	/**
 	 * Test whether we should show Search menu.
 	 *
-	 * @return {boolean} Show search sub menu or not.
+	 * @return boolean Show search sub menu or not.
 	 */
 	protected function should_add_wordads_submenu() {
 		/**

@@ -9,6 +9,7 @@
 namespace Automattic\Jetpack_Boost\Admin;
 
 use Automattic\Jetpack\Admin_UI\Admin_Menu;
+use Automattic\Jetpack\Assets;
 use Automattic\Jetpack\Boost_Speed_Score\Speed_Score;
 use Automattic\Jetpack_Boost\Lib\Analytics;
 use Automattic\Jetpack_Boost\Lib\Environment_Change_Detector;
@@ -33,10 +34,17 @@ class Admin {
 	}
 
 	public function handle_admin_menu() {
+		/**
+		 * Filters the number of problems shown in the Boost sidebar menu
+		 *
+		 * @param int $count the number of problems shown.
+		 *
+		 * @since   1.0.0
+		 */
 		$total_problems = apply_filters( 'jetpack_boost_total_problem_count', 0 );
 		$menu_label     = _x( 'Boost', 'The Jetpack Boost product name, without the Jetpack prefix', 'jetpack-boost' );
 		if ( $total_problems ) {
-			$menu_label .= sprintf( ' <span class="update-plugins">%d</span>', $total_problems );
+			$menu_label .= sprintf( ' <span class="menu-counter count-%d"><span class="count">%d</span></span>', $total_problems, $total_problems );
 		}
 
 		$page_suffix = Admin_Menu::add_menu(
@@ -44,7 +52,8 @@ class Admin {
 			$menu_label,
 			'manage_options',
 			JETPACK_BOOST_SLUG,
-			array( $this, 'render_settings' )
+			array( $this, 'render_settings' ),
+			2
 		);
 		add_action( 'load-' . $page_suffix, array( $this, 'admin_init' ) );
 	}
@@ -56,24 +65,7 @@ class Admin {
 		// Clear premium features cache when the plugin settings page is loaded.
 		Premium_Features::clear_cache();
 
-		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_styles' ) );
 		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
-	}
-
-	/**
-	 * Register the stylesheets for the admin area.
-	 *
-	 * @since    1.0.0
-	 */
-	public function enqueue_styles() {
-		$internal_path = apply_filters( 'jetpack_boost_asset_internal_path', 'app/assets/dist/' );
-
-		wp_enqueue_style(
-			'jetpack-boost-css',
-			plugins_url( $internal_path . 'jetpack-boost.css', JETPACK_BOOST_PATH ),
-			array( 'wp-components' ),
-			JETPACK_BOOST_VERSION
-		);
 	}
 
 	/**
@@ -82,16 +74,30 @@ class Admin {
 	 * @since    1.0.0
 	 */
 	public function enqueue_scripts() {
+		/**
+		 * Filters the internal path to the distributed assets used by the plugin
+		 *
+		 * @param string $path the path to the assets
+		 */
 		$internal_path = apply_filters( 'jetpack_boost_asset_internal_path', 'app/assets/dist/' );
 
 		$admin_js_handle = 'jetpack-boost-admin';
 
-		wp_register_script(
+		$admin_js_dependencies = array(
+			'wp-i18n',
+			'wp-components',
+		);
+
+		Assets::register_script(
 			$admin_js_handle,
-			plugins_url( $internal_path . 'jetpack-boost.js', JETPACK_BOOST_PATH ),
-			array( 'wp-i18n', 'wp-components' ),
-			JETPACK_BOOST_VERSION,
-			true
+			$internal_path . 'jetpack-boost.js',
+			JETPACK_BOOST_PATH,
+			array(
+				'dependencies' => $admin_js_dependencies,
+				'in_footer'    => true,
+				'textdomain'   => 'jetpack-boost',
+				'css_path'     => $internal_path . 'jetpack-boost.css',
+			)
 		);
 
 		wp_localize_script(
@@ -100,9 +106,7 @@ class Admin {
 			( new Config() )->constants()
 		);
 
-		wp_set_script_translations( $admin_js_handle, 'jetpack-boost' );
-
-		wp_enqueue_script( $admin_js_handle );
+		Assets::enqueue_script( $admin_js_handle );
 	}
 
 	/**

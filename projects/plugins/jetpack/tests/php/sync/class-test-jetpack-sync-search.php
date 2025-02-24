@@ -13,7 +13,7 @@ use Automattic\Jetpack\Sync\Settings;
  *
  * @group jetpack-sync
  */
-class Test_Jetpack_Sync_Search extends WP_Test_Jetpack_Sync_Base {
+class Test_Jetpack_Sync_Search extends WP_Test_Jetpack_Sync_TestBase {
 
 	/**
 	 * Identifying number for post under test.
@@ -104,7 +104,7 @@ class Test_Jetpack_Sync_Search extends WP_Test_Jetpack_Sync_Base {
 		// check that these values exists in the whitelist options.
 		$white_listed_post_meta = Modules\Search::get_all_postmeta_keys();
 
-		// update all the opyions.
+		// update all the options.
 		foreach ( $white_listed_post_meta as $meta_key ) {
 			add_post_meta( $this->post_id, $meta_key, 'foo' );
 		}

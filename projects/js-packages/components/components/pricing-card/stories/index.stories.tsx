@@ -1,11 +1,10 @@
 import { action } from '@storybook/addon-actions';
-import PricingCard from '../index';
+import PricingCard from '../index.js';
 import type { StoryFn, Meta } from '@storybook/react';
 
 export default {
 	title: 'JS Packages/Components/Pricing Card',
 	component: PricingCard,
-	// TODO: Storybook Actions are not working. See https://github.com/storybookjs/storybook/issues/7215
 	argTypes: {
 		onCtaClick: { action: 'clicked' },
 	},

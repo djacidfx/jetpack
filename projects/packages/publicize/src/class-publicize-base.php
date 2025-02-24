@@ -12,6 +12,7 @@ namespace Automattic\Jetpack\Publicize;
 use Automattic\Jetpack\Connection\Client;
 use Automattic\Jetpack\Connection\Manager as Connection_Manager;
 use Automattic\Jetpack\Current_Plan;
+use Automattic\Jetpack\Paths;
 use Automattic\Jetpack\Redirect;
 use Automattic\Jetpack\Status;
 use WP_Error;
@@ -238,13 +239,10 @@ abstract class Publicize_Base {
 
 		// Default checkbox state for each Connection.
 		add_filter( 'publicize_checkbox_default', array( $this, 'publicize_checkbox_default' ), 10, 2 );
-		add_filter( 'jetpack_open_graph_tags', array( $this, 'jetpack_social_open_graph_filter' ), 12, 1 ); // $priority = 12, to run after Jetpack adds the tags in the Jetpack_Twitter_Cards class.
+		add_filter( 'jetpack_open_graph_tags', array( $this, 'add_jetpack_social_og_images' ), 12, 1 ); // $priority = 12, to run after Jetpack adds the tags in the Jetpack_Twitter_Cards class.
 
 		// Alter the "Post Publish" admin notice to mention the Connections we Publicized to.
 		add_filter( 'post_updated_messages', array( $this, 'update_published_message' ), 20, 1 );
-
-		// Connection test callback.
-		add_action( 'wp_ajax_test_publicize_conns', array( $this, 'test_publicize_conns' ) );
 
 		// Custom priority to ensure post type support is added prior to thumbnail support being added to the theme.
 		add_action( 'init', array( $this, 'add_post_type_support' ), 8 );
@@ -272,6 +270,32 @@ abstract class Publicize_Base {
 	 * @return array
 	 */
 	abstract public function get_services( $filter = 'all', $_blog_id = false, $_user_id = false );
+
+	/**
+	 * Whether to use the v1 admin UI.
+	 */
+	public function use_admin_ui_v1(): bool {
+
+		// If the option is set, use it.
+		if ( get_option( 'jetpack_social_use_admin_ui_v1', false ) ) {
+			return true;
+		}
+
+		// Otherwise, check the constant and the plan feature.
+		return ( defined( 'JETPACK_SOCIAL_USE_ADMIN_UI_V1' ) && JETPACK_SOCIAL_USE_ADMIN_UI_V1 )
+			|| $this->has_connections_management_feature();
+	}
+
+	/**
+	 * Whether the site has the feature flag enabled.
+	 *
+	 * @param string $flag_name The feature flag to check. Will be prefixed with 'jetpack_social_has_' for the option.
+	 * @param string $feature_name The feature name to check for for the Current_Plan check, without the social- prefix.
+	 * @return bool
+	 */
+	public function has_feature_flag( $flag_name, $feature_name ): bool {
+		return Publicize_Script_Data::has_feature_flag( $feature_name );
+	}
 
 	/**
 	 * Does the given user have a connection to the service on the given blog?
@@ -466,6 +490,35 @@ abstract class Publicize_Base {
 			return 'https://facebook.com/' . $cmeta['connection_data']['meta']['facebook_page'];
 		}
 
+		if ( 'instagram-business' === $service_name && isset( $cmeta['connection_data']['meta']['username'] ) ) {
+			return 'https://instagram.com/' . $cmeta['connection_data']['meta']['username'];
+		}
+
+		if ( 'linkedin' === $service_name ) {
+
+			$entity_type = $cmeta['connection_data']['meta']['entity_type'] ?? 'person';
+
+			if ( 'organization' === $entity_type && ! empty( $cmeta['connection_data']['meta']['external_name'] ) ) {
+				return 'https://www.linkedin.com/company/' . $cmeta['connection_data']['meta']['external_name'];
+			}
+
+			if ( 'person' === $entity_type && ! empty( $cmeta['external_name'] ) ) {
+				return 'https://www.linkedin.com/in/' . $cmeta['external_name'];
+			}
+		}
+
+		if ( 'threads' === $service_name && isset( $cmeta['external_name'] ) ) {
+			return 'https://www.threads.net/@' . $cmeta['external_name'];
+		}
+
+		if ( 'mastodon' === $service_name && isset( $cmeta['external_name'] ) ) {
+			return 'https://mastodon.social/@' . $cmeta['external_name'];
+		}
+
+		if ( 'nextdoor' === $service_name && isset( $cmeta['external_id'] ) ) {
+			return 'https://nextdoor.com/profile/' . $cmeta['external_id'];
+		}
+
 		if ( 'tumblr' === $service_name && isset( $cmeta['connection_data']['meta']['tumblr_base_hostname'] ) ) {
 			return 'https://' . $cmeta['connection_data']['meta']['tumblr_base_hostname'];
 		}
@@ -474,26 +527,8 @@ abstract class Publicize_Base {
 			return 'https://twitter.com/' . substr( $cmeta['external_display'], 1 ); // Has a leading '@'.
 		}
 
-		if ( 'linkedin' === $service_name ) {
-			if ( ! isset( $cmeta['connection_data']['meta']['profile_url'] ) ) {
-				return false;
-			}
-
-			$profile_url_query      = wp_parse_url( $cmeta['connection_data']['meta']['profile_url'], PHP_URL_QUERY );
-			$profile_url_query_args = null;
-			wp_parse_str( $profile_url_query, $profile_url_query_args );
-
-			$id = null;
-
-			if ( isset( $profile_url_query_args['key'] ) ) {
-				$id = $profile_url_query_args['key'];
-			} elseif ( isset( $profile_url_query_args['id'] ) ) {
-				$id = $profile_url_query_args['id'];
-			} else {
-				return false;
-			}
-
-			return esc_url_raw( add_query_arg( 'id', rawurlencode( $id ), 'https://www.linkedin.com/profile/view' ) );
+		if ( 'bluesky' === $service_name ) {
+			return 'https://bsky.app/profile/' . $cmeta['external_id'];
 		}
 
 		return false; // no fallback. we just won't link it.
@@ -509,8 +544,8 @@ abstract class Publicize_Base {
 	public function get_display_name( $service_name, $connection ) {
 		$cmeta = $this->get_connection_meta( $connection );
 
-		if ( 'mastodon' === $service_name && isset( $cmeta['external_name'] ) ) {
-			return $cmeta['external_name'];
+		if ( 'mastodon' === $service_name && isset( $cmeta['external_display'] ) ) {
+			return $cmeta['external_display'];
 		}
 
 		if ( isset( $cmeta['connection_data']['meta']['display_name'] ) ) {
@@ -542,17 +577,35 @@ abstract class Publicize_Base {
 	 * @return string
 	 */
 	public function get_username( $service_name, $connection ) {
+		$handle = $this->get_external_handle( $service_name, $connection );
+
+		return $handle ?? $this->get_display_name( $service_name, $connection );
+	}
+
+	/**
+	 * Returns the external handle for the Connection.
+	 *
+	 * @param string       $service_name 'facebook', 'linkedin', etc.
+	 * @param object|array $connection The Connection object (WordPress.com) or array (Jetpack).
+	 * @return string|null
+	 */
+	public function get_external_handle( $service_name, $connection ) {
 		$cmeta = $this->get_connection_meta( $connection );
 
-		if ( 'mastodon' === $service_name && isset( $cmeta['external_display'] ) ) {
-			return $cmeta['external_display'];
-		}
+		switch ( $service_name ) {
+			case 'mastodon':
+				return $cmeta['external_display'] ?? null;
 
-		if ( isset( $cmeta['connection_data']['meta']['username'] ) ) {
-			return $cmeta['connection_data']['meta']['username'];
-		}
+			case 'bluesky':
+			case 'threads':
+				return $cmeta['external_name'] ?? null;
 
-		return $this->get_display_name( $service_name, $connection );
+			case 'instagram-business':
+				return $cmeta['connection_data']['meta']['username'] ?? null;
+
+			default:
+				return null;
+		}
 	}
 
 	/**
@@ -561,7 +614,7 @@ abstract class Publicize_Base {
 	 * @param object|array $connection The Connection object (WordPress.com) or array (Jetpack).
 	 * @return string
 	 */
-	private function get_profile_picture( $connection ) {
+	public function get_profile_picture( $connection ) {
 		$cmeta = $this->get_connection_meta( $connection );
 
 		if ( isset( $cmeta['profile_picture'] ) ) {
@@ -664,15 +717,6 @@ abstract class Publicize_Base {
 		$connection_meta = $this->get_connection_meta( $connection );
 		$connection_data = $connection_meta['connection_data'];
 		return isset( $connection_data['meta']['options_responses'] );
-	}
-
-	/**
-	 * AJAX Handler to run connection tests on all Connections
-	 *
-	 * @return void
-	 */
-	public function test_publicize_conns() {
-		wp_send_json_success( $this->get_publicize_conns_test_results() );
 	}
 
 	/**
@@ -815,6 +859,7 @@ abstract class Publicize_Base {
 	 *     @type bool   'done'             Has this connection already been publicized to?
 	 *     @type bool   'toggleable'       Is the user allowed to change the value for the connection?
 	 *     @type bool   'global'           Is this connection a global one?
+	 *     @type string 'external_id'      External ID for the connection.
 	 * }
 	 */
 	public function get_filtered_connection_data( $selected_post_id = null ) {
@@ -828,21 +873,20 @@ abstract class Publicize_Base {
 			$post_id = null;
 		}
 
-		$services = $this->get_services( 'connected' );
-		$all_done = $this->post_is_done_sharing( $post_id );
-
 		// We don't allow Publicizing to the same external id twice, to prevent spam.
 		$service_id_done = (array) get_post_meta( $post_id, $this->POST_SERVICE_DONE, true );
 
-		foreach ( $services as $service_name => $connections ) {
+		$connections = Connections::get_all_for_user();
+
+		if ( ! empty( $connections ) ) {
+
 			foreach ( $connections as $connection ) {
-				$connection_meta = $this->get_connection_meta( $connection );
-				$connection_data = $connection_meta['connection_data'];
-				$unique_id       = $this->get_connection_unique_id( $connection );
-				$connection_id   = $this->get_connection_id( $connection );
+				$service_name  = $connection['service_name'];
+				$unique_id     = $connection['id'];
+				$connection_id = $connection['connection_id'];
 				// Was this connection (OR, old-format service) already Publicized to?
 				$done = ! empty( $post ) && (
-					// Flags based on token_id
+					// Flags based on token_id.
 					1 === (int) get_post_meta( $post->ID, $this->POST_DONE . $unique_id, true )
 					||
 					// Old flags.
@@ -858,10 +902,10 @@ abstract class Publicize_Base {
 				 * @param bool true Should the post be publicized to a given service? Default to true.
 				 * @param int $post_id Post ID.
 				 * @param string $service_name Service name.
-				 * @param array $connection_data Array of information about all Publicize details for the site.
+				 * @param array $connection The connection data.
 				 */
 				/* phpcs:ignore WordPress.NamingConventions.ValidHookName.UseUnderscores */
-				if ( ! apply_filters( 'wpas_submit_post?', true, $post_id, $service_name, $connection_data ) ) {
+				if ( ! apply_filters( 'wpas_submit_post?', true, $post_id, $service_name, $connection ) ) {
 					continue;
 				}
 
@@ -885,14 +929,9 @@ abstract class Publicize_Base {
 					)
 					||
 					(
-						is_array( $connection )
-						&&
-						isset( $connection_meta['external_id'] ) && ! empty( $service_id_done[ $service_name ][ $connection_meta['external_id'] ] )
+						isset( $connection['external_id'] ) && ! empty( $service_id_done[ $service_name ][ $connection['external_id'] ] )
 					)
 				);
-
-				// If this one has already been publicized to, don't let it happen again.
-				$toggleable = ! $done && ! $all_done;
 
 				// Determine the state of the checkbox (on/off) and allow filtering.
 				$enabled = $done || ! $skip;
@@ -910,12 +949,9 @@ abstract class Publicize_Base {
 				$enabled = apply_filters( 'publicize_checkbox_default', $enabled, $post_id, $service_name, $connection );
 
 				/**
-				 * If this is a global connection and this user doesn't have enough permissions to modify
-				 * those connections, don't let them change it.
+				 * If this is a shared connection and this user doesn't have enough permissions to modify.
 				 */
-				if ( ! $done && $this->is_global_connection( $connection_meta ) && ! current_user_can( $this->GLOBAL_CAP ) ) {
-					$toggleable = false;
-
+				if ( ! $done && Connections::is_shared( $connection ) && ! current_user_can( $this->GLOBAL_CAP ) ) {
 					/**
 					 * Filters the checkboxes for global connections with non-prilvedged users.
 					 *
@@ -935,18 +971,12 @@ abstract class Publicize_Base {
 					$enabled = true;
 				}
 
-				$connection_list[] = array(
-					'id'              => $connection_id,
-					'unique_id'       => $unique_id,
-					'service_name'    => $service_name,
-					'service_label'   => static::get_service_label( $service_name ),
-					'display_name'    => $this->get_display_name( $service_name, $connection ),
-					'username'        => $this->get_username( $service_name, $connection ),
-					'profile_picture' => $this->get_profile_picture( $connection ),
-					'enabled'         => $enabled,
-					'done'            => $done,
-					'toggleable'      => $toggleable,
-					'global'          => 0 == $connection_data['user_id'], // phpcs:ignore Universal.Operators.StrictComparisons.LooseEqual,WordPress.PHP.StrictComparisons.LooseComparison -- Other types can be used at times.
+				$connection_list[] = array_merge(
+					$connection,
+					array(
+						'enabled' => $enabled,
+						'done'    => $done,
+					)
 				);
 			}
 		}
@@ -1128,13 +1158,17 @@ abstract class Publicize_Base {
 					'template' => ( new Jetpack_Social_Settings\Settings() )->sig_get_default_template(),
 					'enabled'  => false,
 				),
+				'version'                  => 2,
 			),
 			'show_in_rest'  => array(
 				'name'   => 'jetpack_social_options',
 				'schema' => array(
 					'type'       => 'object',
 					'properties' => array(
-						'attached_media'               => array(
+						'version'                  => array(
+							'type' => 'number',
+						),
+						'attached_media'           => array(
 							'type'  => 'array',
 							'items' => array(
 								'type'       => 'object',
@@ -1151,10 +1185,7 @@ abstract class Publicize_Base {
 								),
 							),
 						),
-						'should_upload_attached_media' => array(
-							'type' => 'boolean',
-						),
-						'image_generator_settings'     => array(
+						'image_generator_settings' => array(
 							'type'       => 'object',
 							'properties' => array(
 								'enabled'     => array(
@@ -1234,13 +1265,9 @@ abstract class Publicize_Base {
 		// - API/XML-RPC Test Posts
 		if (
 			(
-				defined( 'XMLRPC_REQUEST' )
-			&&
-				XMLRPC_REQUEST
+			( defined( 'XMLRPC_REQUEST' ) && XMLRPC_REQUEST )
 			||
-				defined( 'APP_REQUEST' )
-			&&
-				APP_REQUEST
+			( defined( 'APP_REQUEST' ) && constant( 'APP_REQUEST' ) )
 			)
 		&&
 			str_starts_with( $post->post_title, 'Temporary Post Used For Theme Detection' )
@@ -1643,7 +1670,8 @@ abstract class Publicize_Base {
 	 * @return string
 	 */
 	public function get_resized_image_url( $image_url, $width, $height ) {
-		return jetpack_photon_url(
+		return apply_filters(
+			'jetpack_photon_url',
 			$image_url,
 			array(
 				'w' => $width,
@@ -1792,6 +1820,37 @@ abstract class Publicize_Base {
 	}
 
 	/**
+	 * Add the Jetpack Social images (attached media, SIG image) to the OpenGraph tags.
+	 *
+	 * @param array $tags Current tags.
+	 */
+	public function add_jetpack_social_og_images( $tags ) {
+		$opengraph_image = $this->get_social_opengraph_image( get_the_ID() );
+
+		if ( empty( $opengraph_image ) ) {
+			return $tags;
+		}
+
+		// If this code is running in Jetpack, we need to add Twitter cards.
+		// Some active plugins disable Jetpack's Twitter Cards, so we need
+		// to check if the class was instantiated before adding the cards.
+		$needs_twitter_cards = class_exists( 'Jetpack_Twitter_Cards' );
+
+		return array_merge(
+			$tags,
+			array(
+				'og:image'        => $opengraph_image['url'],
+				'og:image:width'  => $opengraph_image['width'],
+				'og:image:height' => $opengraph_image['height'],
+			),
+			$needs_twitter_cards ? array(
+				'twitter:image' => $opengraph_image['url'],
+				'twitter:card'  => 'summary_large_image',
+			) : array()
+		);
+	}
+
+	/**
 	 * Util
 	 */
 
@@ -1825,6 +1884,14 @@ abstract class Publicize_Base {
 	 * @return string
 	 */
 	public function publicize_connections_url( $source = 'calypso-marketing-connections' ) {
+		if ( $this->use_admin_ui_v1() && current_user_can( 'manage_options' ) ) {
+			$has_social_admin_page = defined( 'JETPACK_SOCIAL_PLUGIN_DIR' ) || Publicize_Script_Data::has_feature_flag( 'admin-page' );
+
+			$page = $has_social_admin_page ? 'jetpack-social' : 'jetpack#/sharing';
+
+			return ( new Paths() )->admin_url( array( 'page' => $page ) );
+		}
+
 		$allowed_sources = array( 'jetpack-social-connections-admin-page', 'jetpack-social-connections-classic-editor', 'calypso-marketing-connections' );
 		$source          = in_array( $source, $allowed_sources, true ) ? $source : 'calypso-marketing-connections';
 		$blog_id         = Connection_Manager::get_site_id( true );
@@ -1932,6 +1999,8 @@ abstract class Publicize_Base {
 	/**
 	 * Check if the auto-conversion feature is one of the active features.
 	 *
+	 * TODO: Remove this after certain releases of Jetpack v15.
+	 *
 	 * @param string $type Whether image or video.
 	 *
 	 * @return bool
@@ -1952,6 +2021,15 @@ abstract class Publicize_Base {
 	}
 
 	/**
+	 * Check if the new connections management is enabled is enabled.
+	 *
+	 * @return bool
+	 */
+	public function has_connections_management_feature() {
+		return Current_Plan::supports( 'social-connections-management' );
+	}
+
+	/**
 	 * Get a list of additional connections that are supported by the current plan.
 	 *
 	 * @return array
@@ -1959,16 +2037,8 @@ abstract class Publicize_Base {
 	public function get_supported_additional_connections() {
 		$additional_connections = array();
 
-		if ( $this->has_connection_feature( 'instagram' ) ) {
-			$additional_connections[] = 'instagram-business';
-		}
-
-		if ( $this->has_connection_feature( 'mastodon' ) ) {
-			$additional_connections[] = 'mastodon';
-		}
-
-		if ( $this->has_connection_feature( 'nextdoor' ) ) {
-			$additional_connections[] = 'nextdoor';
+		if ( $this->has_connection_feature( 'threads' ) ) {
+			$additional_connections[] = 'threads';
 		}
 
 		return $additional_connections;
@@ -2003,10 +2073,19 @@ abstract class Publicize_Base {
 	 */
 	public function has_paid_plan( $refresh_from_wpcom = false ) {
 		static $has_paid_plan = null;
-		if ( $has_paid_plan === null ) {
+		if ( null === $has_paid_plan ) {
 			$has_paid_plan = Current_Plan::supports( 'social-shares-1000', $refresh_from_wpcom );
 		}
 		return $has_paid_plan;
+	}
+
+	/**
+	 * Check if we have paid features enabled.
+	 *
+	 * @return bool True if we have paid features, false otherwise.
+	 */
+	public function has_paid_features() {
+		return $this->has_enhanced_publishing_feature();
 	}
 
 	/**
@@ -2022,6 +2101,17 @@ abstract class Publicize_Base {
 		}
 
 		return $dismissed_notices;
+	}
+
+	/**
+	 * Whether the current user can manage a connection.
+	 *
+	 * @param array $connection_data The connection data.
+	 *
+	 * @return bool
+	 */
+	public static function can_manage_connection( $connection_data ) {
+		return current_user_can( 'edit_others_posts' ) || get_current_user_id() === (int) $connection_data['user_id'];
 	}
 }
 

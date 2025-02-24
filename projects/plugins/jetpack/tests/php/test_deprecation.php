@@ -9,10 +9,11 @@ class WP_Test_Jetpack_Deprecation extends WP_UnitTestCase {
 		$this->setExpectedDeprecated( $file_path );
 
 		$mock = $this->getMockBuilder( stdClass::class )
-			->setMethods( array( 'action' ) )
+			->addMethods( array( 'action' ) )
 			->getMock();
 		$mock->expects( $this->once() )->method( 'action' )->with( $file_path, $replacement_path );
 
+		// @phan-suppress-next-line PhanEmptyFQSENInClasslike -- https://github.com/phan/phan/issues/4851
 		add_action( 'deprecated_file_included', array( $mock, 'action' ), 10, 2 );
 		add_filter( 'deprecated_file_trigger_error', '__return_false' );
 

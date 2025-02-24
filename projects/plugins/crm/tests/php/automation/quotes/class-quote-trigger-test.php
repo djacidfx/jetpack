@@ -10,16 +10,20 @@ use Automattic\Jetpack\CRM\Automation\Triggers\Quote_Deleted;
 use Automattic\Jetpack\CRM\Automation\Triggers\Quote_Status_Updated;
 use Automattic\Jetpack\CRM\Automation\Triggers\Quote_Updated;
 use Automattic\Jetpack\CRM\Entities\Quote;
-use Automattic\Jetpack\CRM\Tests\JPCRM_Base_Test_Case;
+use Automattic\Jetpack\CRM\Tests\JPCRM_Base_TestCase;
 
 require_once __DIR__ . '../../tools/class-automation-faker.php';
 
 /**
  * Test Automation's quote triggers
  *
- * @covers Automattic\Jetpack\CRM\Automation
+ * @covers Automattic\Jetpack\CRM\Automation\Triggers\Quote_Accepted
+ * @covers Automattic\Jetpack\CRM\Automation\Triggers\Quote_Created
+ * @covers Automattic\Jetpack\CRM\Automation\Triggers\Quote_Deleted
+ * @covers Automattic\Jetpack\CRM\Automation\Triggers\Quote_Status_Updated
+ * @covers Automattic\Jetpack\CRM\Automation\Triggers\Quote_Updated
  */
-class Quote_Trigger_Test extends JPCRM_Base_Test_Case {
+class Quote_Trigger_Test extends JPCRM_Base_TestCase {
 
 	private $automation_faker;
 

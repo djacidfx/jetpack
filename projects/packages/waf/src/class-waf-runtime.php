@@ -19,11 +19,14 @@ require_once __DIR__ . '/functions.php';
  * @var string JETPACK_WAF_MODE
  */
 
+// Type aliases for this file.
+<<<PHAN
+@phan-type Target = array{ only?: string[], except?: string[], count?: boolean }
+@phan-type TargetBag = array<string, Target>
+PHAN;
+
 /**
  * Waf_Runtime class
- *
- * @template Target as array{ only?: string[], except?: string[], count?: boolean }
- * @template TargetBag as array<string, Target>
  */
 class Waf_Runtime {
 	/**
@@ -35,6 +38,14 @@ class Waf_Runtime {
 	 */
 	const NORMALIZE_ARRAY_MATCH_VALUES = 2;
 
+	/**
+	 * The version of this runtime class. Used by rule files to ensure compatibility.
+	 *
+	 * @since 0.21.0
+	 *
+	 * @var int
+	 */
+	public $version = 1;
 	/**
 	 * Last rule.
 	 *
@@ -65,6 +76,12 @@ class Waf_Runtime {
 	 * @var string
 	 */
 	public $matched_var_name = '';
+	/**
+	 * Body Processor.
+	 *
+	 * @var string 'URLENCODED' | 'JSON' | ''
+	 */
+	private $body_processor = '';
 
 	/**
 	 * State.
@@ -124,7 +141,7 @@ class Waf_Runtime {
 	 *
 	 * @param Waf_Transforms $transforms Transforms.
 	 * @param Waf_Operators  $operators  Operators.
-	 * @param Waf_Request?   $request    Information about the request.
+	 * @param ?Waf_Request   $request    Information about the request.
 	 */
 	public function __construct( $transforms, $operators, $request = null ) {
 		$this->transforms = $transforms;
@@ -268,7 +285,7 @@ class Waf_Runtime {
 			$reason = $this->sanitize_output( $reason );
 		}
 
-		$this->write_blocklog( $rule_id, $reason );
+		Waf_Blocklog_Manager::write_blocklog( $rule_id, $reason );
 		error_log( "Jetpack WAF Blocked Request\t$action\t$rule_id\t$status_code\t$reason" );
 		header( "X-JetpackWAF-Blocked: $status_code - rule $rule_id" );
 		if ( defined( 'JETPACK_WAF_MODE' ) && 'normal' === JETPACK_WAF_MODE ) {
@@ -276,106 +293,6 @@ class Waf_Runtime {
 			header( $protocol . ' 403 Forbidden', true, $status_code );
 			die( "rule $rule_id - reason $reason" );
 		}
-	}
-
-	/**
-	 * Get the headers for logging purposes.
-	 */
-	public function get_request_headers() {
-		$all_headers     = getallheaders();
-		$exclude_headers = array( 'Authorization', 'Cookie', 'Proxy-Authorization', 'Set-Cookie' );
-
-		foreach ( $exclude_headers as $header ) {
-			unset( $all_headers[ $header ] );
-		}
-
-		return $all_headers;
-	}
-
-	/**
-	 * Write block logs. We won't write to the file if it exceeds 100 mb.
-	 *
-	 * @param string $rule_id Rule id.
-	 * @param string $reason Block reason.
-	 */
-	public function write_blocklog( $rule_id, $reason ) {
-		$log_data                 = array();
-		$log_data['rule_id']      = $rule_id;
-		$log_data['reason']       = $reason;
-		$log_data['timestamp']    = gmdate( 'Y-m-d H:i:s' );
-		$log_data['request_uri']  = isset( $_SERVER['REQUEST_URI'] ) ? \stripslashes( $_SERVER['REQUEST_URI'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-		$log_data['user_agent']   = isset( $_SERVER['HTTP_USER_AGENT'] ) ? \stripslashes( $_SERVER['HTTP_USER_AGENT'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-		$log_data['referer']      = isset( $_SERVER['HTTP_REFERER'] ) ? \stripslashes( $_SERVER['HTTP_REFERER'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-		$log_data['content_type'] = isset( $_SERVER['CONTENT_TYPE'] ) ? \stripslashes( $_SERVER['CONTENT_TYPE'] ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.MissingUnslash
-		$log_data['get_params']   = json_encode( $_GET );
-
-		if ( defined( 'JETPACK_WAF_SHARE_DEBUG_DATA' ) && JETPACK_WAF_SHARE_DEBUG_DATA ) {
-			$log_data['post_params'] = json_encode( $_POST );
-			$log_data['headers']     = $this->get_request_headers();
-		}
-
-		if ( defined( 'JETPACK_WAF_SHARE_DATA' ) && JETPACK_WAF_SHARE_DATA ) {
-			$file_path   = JETPACK_WAF_DIR . '/waf-blocklog';
-			$file_exists = file_exists( $file_path );
-
-			if ( ! $file_exists || filesize( $file_path ) < ( 100 * 1024 * 1024 ) ) {
-				$fp = fopen( $file_path, 'a+' );
-
-				if ( $fp ) {
-					try {
-						fwrite( $fp, json_encode( $log_data ) . "\n" );
-					} finally {
-						fclose( $fp );
-					}
-				}
-			}
-		}
-
-		$this->write_blocklog_row( $log_data );
-	}
-
-	/**
-	 * Write block logs to database.
-	 *
-	 * @param array $log_data Log data.
-	 */
-	private function write_blocklog_row( $log_data ) {
-		$conn = $this->connect_to_wordpress_db();
-
-		if ( ! $conn ) {
-			return;
-		}
-
-		global $table_prefix;
-
-		$statement = $conn->prepare( "INSERT INTO {$table_prefix}jetpack_waf_blocklog(reason,rule_id, timestamp) VALUES (?, ?, ?)" );
-		if ( false !== $statement ) {
-			$statement->bind_param( 'sis', $log_data['reason'], $log_data['rule_id'], $log_data['timestamp'] );
-			$statement->execute();
-
-			if ( $conn->insert_id > 100 ) {
-				$conn->query( "DELETE FROM {$table_prefix}jetpack_waf_blocklog ORDER BY log_id LIMIT 1" );
-			}
-		}
-	}
-
-	/**
-	 * Connect to WordPress database.
-	 */
-	private function connect_to_wordpress_db() {
-		if ( ! file_exists( JETPACK_WAF_WPCONFIG ) ) {
-			return;
-		}
-
-		require_once JETPACK_WAF_WPCONFIG;
-		$conn = new \mysqli( DB_HOST, DB_USER, DB_PASSWORD, DB_NAME ); // phpcs:ignore WordPress.DB.RestrictedClasses.mysql__mysqli
-
-		if ( $conn->connect_error ) {
-			error_log( 'Could not connect to the database:' . $conn->connect_error );
-			return null;
-		}
-
-		return $conn;
 	}
 
 	/**
@@ -388,7 +305,7 @@ class Waf_Runtime {
 	public function redirect( $rule_id, $url ) {
 		error_log( "Jetpack WAF Redirected Request.\tRule:$rule_id\t$url" );
 		header( "Location: $url" );
-		exit;
+		exit( 0 );
 	}
 
 	/**
@@ -535,7 +452,7 @@ class Waf_Runtime {
 					$value = $this->args_names( $this->meta( 'args_get' ) );
 					break;
 				case 'args_post':
-					$value = $this->request->get_post_vars();
+					$value = $this->request->get_post_vars( $this->get_body_processor() );
 					break;
 				case 'args_post_names':
 					$value = $this->args_names( $this->meta( 'args_post' ) );
@@ -586,6 +503,28 @@ class Waf_Runtime {
 	}
 
 	/**
+	 * Get the body processor.
+	 *
+	 * @return string
+	 */
+	private function get_body_processor() {
+		return $this->body_processor;
+	}
+
+	/**
+	 * Set the body processor.
+	 *
+	 * @param string $processor Processor to set. Either 'URLENCODED' or 'JSON'.
+	 *
+	 * @return void
+	 */
+	public function set_body_processor( $processor ) {
+		if ( $processor === 'URLENCODED' || $processor === 'JSON' ) {
+			$this->body_processor = $processor;
+		}
+	}
+
+	/**
 	 * Change a string to all lowercase and replace spaces and underscores with dashes.
 	 *
 	 * @param string $name Name.
@@ -614,7 +553,7 @@ class Waf_Runtime {
 	 *   value:  The value that was found in the associated target.
 	 *
 	 * @param TargetBag $targets An assoc. array with keys that are target name(s) and values are options for how to process that target (include/exclude rules, whether to return values or counts).
-	 * @return array{ name: string, source: string, value: mixed }
+	 * @return array{name: string, source: string, value: mixed}[]
 	 */
 	public function normalize_targets( $targets ) {
 		$return = array();
@@ -677,7 +616,7 @@ class Waf_Runtime {
 					continue 2;
 				default:
 					var_dump( 'Unknown target', $k, $v );
-					exit;
+					exit( 0 );
 			}
 			$return[] = array(
 				'name'   => $k,
@@ -700,8 +639,8 @@ class Waf_Runtime {
 		$array_length = count( $array );
 
 		for ( $i = 0; $i < $array_length; $i++ ) {
-			// Check if the IP matches a provided range.
-			$range = explode( '-', $array[ $i ] );
+			// Check if the IP matches a provided range or CIDR notation.
+			$range = strpos( $array[ $i ], '/' ) !== false ? array( $array[ $i ], null ) : explode( '-', $array[ $i ] );
 			if ( count( $range ) === 2 ) {
 				if ( IP_Utils::ip_address_is_in_range( $real_ip, $range[0], $range[1] ) ) {
 					return true;
@@ -721,12 +660,12 @@ class Waf_Runtime {
 	/**
 	 * Extract values from an associative array, potentially applying filters and/or counting results.
 	 *
-	 * @param array{ 0: string, 1: scalar }|scalar[] $source      The source assoc. array of values (i.e. $_GET, $_SERVER, etc.).
-	 * @param string[]                               $only        Only include the values for these keys in the output.
-	 * @param string[]                               $excl        Never include the values for these keys in the output.
-	 * @param string                                 $name        The name of this target (see https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-(v3.x)#Variables).
-	 * @param array                                  $results     Array to add output values to, will be modified by this method.
-	 * @param int                                    $flags       Any of the NORMALIZE_ARRAY_* constants defined at the top of the class.
+	 * @param array{0: string, 1: scalar}|scalar[] $source      The source assoc. array of values (i.e. $_GET, $_SERVER, etc.).
+	 * @param string[]                             $only        Only include the values for these keys in the output.
+	 * @param string[]                             $excl        Never include the values for these keys in the output.
+	 * @param string                               $name        The name of this target (see https://github.com/SpiderLabs/ModSecurity/wiki/Reference-Manual-(v3.x)#Variables).
+	 * @param array                                $results     Array to add output values to, will be modified by this method.
+	 * @param int                                  $flags       Any of the NORMALIZE_ARRAY_* constants defined at the top of the class.
 	 */
 	private function normalize_array_target( $source, $only, $excl, $name, &$results, $flags = 0 ) {
 		$output   = array();

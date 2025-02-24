@@ -102,7 +102,8 @@ class Dashboard {
 				_x( 'Search', 'product name shown in menu', 'jetpack-search-pkg' ),
 				'manage_options',
 				'jetpack-search',
-				array( $this, 'render' )
+				array( $this, 'render' ),
+				10
 			);
 		} else {
 			// always add the page, but hide it from the menu.
@@ -135,7 +136,7 @@ class Dashboard {
 	/**
 	 * Test whether we should show Search menu.
 	 *
-	 * @return {boolean} Show search sub menu or not.
+	 * @return boolean Show search sub menu or not.
 	 */
 	protected function should_add_search_submenu() {
 		/**

@@ -1,5 +1,6 @@
 <?php
 
+use Automattic\Jetpack\Connection\Utils;
 use Automattic\Jetpack\Constants;
 use Automattic\Jetpack\Sync\Modules;
 use Automattic\Jetpack\Sync\Users;
@@ -7,7 +8,7 @@ use Automattic\Jetpack\Sync\Users;
 /**
  * Testing CRUD on Users
  */
-class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_Base {
+class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_TestBase {
 	protected $user_id;
 
 	/**
@@ -190,7 +191,7 @@ class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_Base {
 		}
 	}
 
-	// User meta not syncing
+	/** User meta not syncing **/
 	public function test_do_not_sync_user_data_on_user_meta_change() {
 		$this->server_event_storage->reset();
 
@@ -210,7 +211,7 @@ class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_Base {
 		$this->assertFalse( $event );
 	}
 
-	// Roles syncing
+	/** Roles syncing **/
 	public function test_user_add_role_is_synced() {
 		$user = get_user_by( 'id', $this->user_id );
 		$user->add_role( 'author' );
@@ -282,7 +283,7 @@ class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_Base {
 		$this->assertEquals( $this->user_id, $save_event->args[0]->ID );
 	}
 
-	// Capabilities syncing
+	/** Capabilities syncing **/
 	public function test_user_add_capability_is_synced() {
 		$user = get_user_by( 'id', $this->user_id );
 		$user->add_cap( 'do_stuff', true );
@@ -373,7 +374,6 @@ class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_Base {
 		$this->assertEquals( get_allowed_mime_types( $this->user_id ), $server_user_file_mime_types );
 	}
 
-	// to test run phpunit -c tests/php.multisite.xml --filter test_does_not_sync_non_site_users_in_multisite
 	public function test_deletes_users_removed_from_multisite() {
 		if ( ! is_multisite() ) {
 			$this->markTestSkipped( 'Run it in multi site mode' );
@@ -457,9 +457,9 @@ class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_Base {
 		// TODO: ideally we would do wp_signon to trigger this event, but it tries to send headers and
 		// causes an error.
 
-		add_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_Base', 'pre_http_request_bruteprotect_api' ), 10, 3 );
+		add_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_TestBase', 'pre_http_request_bruteprotect_api' ), 10, 3 );
 		do_action( 'wp_login', 'foobar', get_user_by( 'ID', $user_id ) );
-		remove_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_Base', 'pre_http_request_bruteprotect_api' ) );
+		remove_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_TestBase', 'pre_http_request_bruteprotect_api' ) );
 
 		$this->sender->do_sync();
 
@@ -732,7 +732,7 @@ class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_Base {
 		// Fake it till you make it
 		Constants::set_constant( 'JETPACK_INVITE_ACCEPTED', true );
 		// We modify the input here to mimick the same call structure of the update user endpoint.
-		Jetpack_SSO_Helpers::generate_user( $this->get_invite_user_data() );
+		Utils::generate_user( $this->get_invite_user_data() );
 		$this->sender->do_sync();
 
 		Constants::clear_constants();
@@ -751,7 +751,7 @@ class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_Base {
 		// Fake it till we make it
 		Constants::set_constant( 'JETPACK_INVITE_ACCEPTED', false );
 		// We modify the input here to mimick the same call structure of the update user endpoint.
-		Jetpack_SSO_Helpers::generate_user( $this->get_invite_user_data() );
+		Utils::generate_user( $this->get_invite_user_data() );
 		$this->sender->do_sync();
 
 		Constants::clear_constants();
@@ -769,9 +769,9 @@ class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_Base {
 
 		do_action( 'authenticate', $user, $user->user_login, 'admin' );
 
-		add_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_Base', 'pre_http_request_bruteprotect_api' ), 10, 3 );
+		add_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_TestBase', 'pre_http_request_bruteprotect_api' ), 10, 3 );
 		do_action( 'wp_login', $user->user_login, $user );
-		remove_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_Base', 'pre_http_request_bruteprotect_api' ) );
+		remove_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_TestBase', 'pre_http_request_bruteprotect_api' ) );
 
 		$this->sender->do_sync();
 
@@ -786,9 +786,9 @@ class WP_Test_Jetpack_Sync_Users extends WP_Test_Jetpack_Sync_Base {
 
 		do_action( 'authenticate', $user, $user->user_login, wp_generate_password( 25 ) );
 
-		add_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_Base', 'pre_http_request_bruteprotect_api' ), 10, 3 );
+		add_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_TestBase', 'pre_http_request_bruteprotect_api' ), 10, 3 );
 		do_action( 'wp_login', $user->user_login, $user );
-		remove_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_Base', 'pre_http_request_bruteprotect_api' ) );
+		remove_filter( 'pre_http_request', array( 'WP_Test_Jetpack_Sync_TestBase', 'pre_http_request_bruteprotect_api' ) );
 
 		$this->sender->do_sync();
 

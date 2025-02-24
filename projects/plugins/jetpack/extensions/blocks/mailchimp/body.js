@@ -1,7 +1,7 @@
 import { InnerBlocks, RichText } from '@wordpress/block-editor';
 import { TextControl } from '@wordpress/components';
 import { __ } from '@wordpress/i18n';
-import classnames from 'classnames';
+import clsx from 'clsx';
 import {
 	BLOCK_CLASS,
 	NOTIFICATION_ERROR,
@@ -23,7 +23,7 @@ const innerButtonBlock = {
 	},
 };
 
-const Body = ( { attributes, setAttributes, className, audition } ) => {
+const Body = ( { attributes, setAttributes, audition } ) => {
 	const {
 		emailPlaceholder = DEFAULT_EMAIL_PLACEHOLDER,
 		consentText = DEFAULT_CONSENT_TEXT,
@@ -40,11 +40,13 @@ const Body = ( { attributes, setAttributes, className, audition } ) => {
 
 	return (
 		<div
-			className={ classnames( className, {
+			className={ clsx( {
 				[ `${ BLOCK_CLASS }_notication-audition` ]: audition,
 			} ) }
 		>
 			<TextControl
+				__nextHasNoMarginBottom={ true }
+				__next40pxDefaultSize
 				aria-label={ emailPlaceholder }
 				className={ `${ BLOCK_CLASS }_text-input` }
 				disabled

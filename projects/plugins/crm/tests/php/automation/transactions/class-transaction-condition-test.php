@@ -6,16 +6,16 @@ use Automattic\Jetpack\CRM\Automation\Automation_Exception;
 use Automattic\Jetpack\CRM\Automation\Conditions\Transaction_Field;
 use Automattic\Jetpack\CRM\Automation\Data_Types\Transaction_Data;
 use Automattic\Jetpack\CRM\Entities\Transaction;
-use Automattic\Jetpack\CRM\Tests\JPCRM_Base_Test_Case;
+use Automattic\Jetpack\CRM\Tests\JPCRM_Base_TestCase;
 
 require_once __DIR__ . '../../tools/class-automation-faker.php';
 
 /**
  * Test Automation Transaction Condition functionalities
  *
- * @covers Automattic\Jetpack\CRM\Automation
+ * @covers Automattic\Jetpack\CRM\Automation\Conditions\Transaction_Field
  */
-class Transaction_Condition_Test extends JPCRM_Base_Test_Case {
+class Transaction_Condition_Test extends JPCRM_Base_TestCase {
 
 	private $automation_faker;
 

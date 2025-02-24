@@ -24,17 +24,20 @@ use Automattic\Jetpack_Boost\Data_Sync\Getting_Started_Entry;
 use Automattic\Jetpack_Boost\Lib\Analytics;
 use Automattic\Jetpack_Boost\Lib\CLI;
 use Automattic\Jetpack_Boost\Lib\Connection;
+use Automattic\Jetpack_Boost\Lib\Cornerstone\Cornerstone_Pages;
 use Automattic\Jetpack_Boost\Lib\Critical_CSS\Critical_CSS_State;
 use Automattic\Jetpack_Boost\Lib\Critical_CSS\Critical_CSS_Storage;
 use Automattic\Jetpack_Boost\Lib\Critical_CSS\Generator;
 use Automattic\Jetpack_Boost\Lib\Setup;
 use Automattic\Jetpack_Boost\Lib\Site_Health;
 use Automattic\Jetpack_Boost\Lib\Status;
+use Automattic\Jetpack_Boost\Lib\Super_Cache_Tracking;
 use Automattic\Jetpack_Boost\Modules\Modules_Index;
 use Automattic\Jetpack_Boost\Modules\Modules_Setup;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Page_Cache\Page_Cache;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Page_Cache\Page_Cache_Setup;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Page_Cache\Pre_WordPress\Boost_Cache_Settings;
+use Automattic\Jetpack_Boost\REST_API\Endpoints\List_Cornerstone_Pages;
 use Automattic\Jetpack_Boost\REST_API\Endpoints\List_Site_Urls;
 use Automattic\Jetpack_Boost\REST_API\Endpoints\List_Source_Providers;
 use Automattic\Jetpack_Boost\REST_API\REST_API;
@@ -107,17 +110,20 @@ class Jetpack_Boost {
 		$modules_setup = new Modules_Setup();
 		Setup::add( $modules_setup );
 
+		$cornerstone_pages = new Cornerstone_Pages();
+		Setup::add( $cornerstone_pages );
+
 		// Initialize the Admin experience.
 		$this->init_admin( $modules_setup );
 
 		// Initiate jetpack sync.
 		$this->init_sync();
 
+		add_action( 'admin_init', array( $this, 'handle_version_change' ) );
+
 		add_action( 'init', array( $this, 'init_textdomain' ) );
 
 		add_action( 'jetpack_boost_critical_css_environment_changed', array( $this, 'handle_environment_change' ), 10, 2 );
-
-		add_filter( 'query_vars', array( self::class, 'whitelist_query_args' ) );
 
 		// Fired when plugin ready.
 		do_action( 'jetpack_boost_loaded', $this );
@@ -131,6 +137,8 @@ class Jetpack_Boost {
 
 		// Setup Site Health panel functionality.
 		Site_Health::init();
+
+		Super_Cache_Tracking::setup();
 	}
 
 	/**
@@ -141,13 +149,28 @@ class Jetpack_Boost {
 		register_deactivation_hook( $plugin_file, array( $this, 'deactivate' ) );
 	}
 
+	public function handle_version_change() {
+		$version = get_option( 'jetpack_boost_version' );
+
+		if ( $version === JETPACK_BOOST_VERSION ) {
+			return;
+		}
+
+		update_option( 'jetpack_boost_version', JETPACK_BOOST_VERSION );
+
+		if ( jetpack_boost_minify_is_enabled() ) {
+			// We need to clear Minify scheduled events to ensure the latest scheduled jobs are only scheduled irrespective of scheduled arguments.
+			jetpack_boost_minify_clear_scheduled_events();
+			jetpack_boost_minify_activation();
+		}
+	}
+
 	/**
 	 * Add query args used by Boost to a list of allowed query args.
 	 *
 	 * @param array $allowed_query_args The list of allowed query args.
 	 *
 	 * @return array The modified list of allowed query args.
-
 	 */
 	public static function whitelist_query_args( $allowed_query_args ) {
 		$allowed_query_args[] = Generator::GENERATE_QUERY_ACTION;
@@ -164,7 +187,7 @@ class Jetpack_Boost {
 		Analytics::record_user_event( 'activate_plugin' );
 
 		$page_cache_status = new Status( Page_Cache::get_slug() );
-		if ( $page_cache_status->is_enabled() && Boost_Cache_Settings::get_instance()->get_enabled() ) {
+		if ( $page_cache_status->get() && Boost_Cache_Settings::get_instance()->get_enabled() ) {
 			Page_Cache_Setup::run_setup();
 		}
 	}
@@ -176,7 +199,6 @@ class Jetpack_Boost {
 		do_action( 'jetpack_boost_deactivate' );
 
 		// Tell Minify JS/CSS to clean up.
-		require_once JETPACK_BOOST_DIR_PATH . '/app/lib/minify/functions-helpers.php';
 		jetpack_boost_page_optimize_deactivate();
 
 		Regenerate_Admin_Notice::dismiss();
@@ -190,6 +212,8 @@ class Jetpack_Boost {
 	public function init_admin( $modules_setup ) {
 		REST_API::register( List_Site_Urls::class );
 		REST_API::register( List_Source_Providers::class );
+		REST_API::register( List_Cornerstone_Pages::class );
+
 		$this->connection->ensure_connection();
 		( new Admin() )->init( $modules_setup );
 	}
@@ -201,6 +225,7 @@ class Jetpack_Boost {
 			array(
 				'jetpack_sync_callable_whitelist' => array(
 					'boost_modules'                => array( new Modules_Setup(), 'get_status' ),
+					'boost_sub_modules_state'      => array( new Modules_Setup(), 'get_all_sub_modules_state' ),
 					'boost_latest_scores'          => array( new Speed_Score_History( get_home_url() ), 'latest' ),
 					'boost_latest_no_boost_scores' => array( new Speed_Score_History( add_query_arg( Modules_Index::DISABLE_MODULE_QUERY_VAR, 'all', get_home_url() ) ), 'latest' ),
 					'critical_css_state'           => array( new Critical_CSS_State(), 'get' ),

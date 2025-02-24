@@ -8,6 +8,7 @@ use Automattic\Jetpack_Boost\Modules\Image_Size_Analysis\Image_Size_Analysis;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Cloud_CSS\Cloud_CSS;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Critical_CSS\Critical_CSS;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Image_CDN\Image_CDN;
+use Automattic\Jetpack_Boost\Modules\Optimizations\Minify\Minify;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Minify\Minify_CSS;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Minify\Minify_JS;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Page_Cache\Page_Cache;
@@ -16,6 +17,7 @@ use Automattic\Jetpack_Boost\Modules\Performance_History\Performance_History;
 
 class Modules_Index {
 	const DISABLE_MODULE_QUERY_VAR = 'jb-disable-modules';
+
 	/**
 	 * @var Module[] - Associative array of all Jetpack Boost modules.
 	 *
@@ -24,12 +26,18 @@ class Modules_Index {
 	protected $modules = array();
 
 	/**
-	 * @var Pluggable[] - Classes that handle all Jetpack Boost featues.
+	 * @var Module[] - Associative array of available Jetpack Boost modules.
 	 */
-	const MODULES = array(
+	protected $available_modules = array();
+
+	/**
+	 * @var class-string<Pluggable>[] - Classes that handle all Jetpack Boost features.
+	 */
+	const FEATURES = array(
 		Critical_CSS::class,
 		Cloud_CSS::class,
 		Image_Size_Analysis::class,
+		Minify::class,
 		Minify_JS::class,
 		Minify_CSS::class,
 		Render_Blocking_JS::class,
@@ -46,10 +54,10 @@ class Modules_Index {
 	 * without a nonce.
 	 */
 	public function __construct() {
-		foreach ( self::MODULES as $module ) {
-			if ( $module::is_available() ) {
-				$slug                   = $module::get_slug();
-				$this->modules[ $slug ] = new Module( new $module() );
+		foreach ( self::FEATURES as $feature ) {
+			$this->modules[ $feature::get_slug() ] = new Module( new $feature() );
+			if ( $feature::is_available() ) {
+				$this->available_modules[ $feature::get_slug() ] = $this->modules[ $feature::get_slug() ];
 			}
 		}
 	}
@@ -61,22 +69,36 @@ class Modules_Index {
 	 * @return array - An array of module classes indexed by slug that implement the interface.
 	 */
 	public static function get_modules_implementing( string $interface ): array {
-		$matching_modules = array();
+		$matching_features = array();
 
-		foreach ( self::MODULES as $module ) {
-			if ( in_array( $interface, class_implements( $module ), true ) ) {
-				$matching_modules[ $module::get_slug() ] = $module;
+		foreach ( self::FEATURES as $feature ) {
+			if ( in_array( $interface, class_implements( $feature ), true ) ) {
+				$matching_features[ $feature::get_slug() ] = $feature;
 			}
 		}
 
-		return $matching_modules;
+		return $matching_features;
 	}
 
+	/**
+	 * Fetches all modules.
+	 *
+	 * @return Module[]
+	 */
+	public function get_modules() {
+		return $this->modules;
+	}
+
+	/**
+	 * Get all modules that aren't disabled.
+	 *
+	 * @return Module[]
+	 */
 	public function available_modules() {
 		$forced_disabled_modules = $this->get_disabled_modules();
 
 		if ( empty( $forced_disabled_modules ) ) {
-			return $this->modules;
+			return $this->available_modules;
 		}
 
 		if ( array( 'all' ) === $forced_disabled_modules ) {
@@ -84,7 +106,7 @@ class Modules_Index {
 		}
 
 		$available_modules = array();
-		foreach ( $this->modules as $slug => $module ) {
+		foreach ( $this->available_modules as $slug => $module ) {
 			if ( ! in_array( $slug, $forced_disabled_modules, true ) ) {
 				$available_modules[ $slug ] = $module;
 			}
@@ -105,6 +127,18 @@ class Modules_Index {
 		return $module->is_enabled();
 	}
 
+	public function is_module_available( $slug ) {
+		$available_modules = $this->available_modules();
+
+		if ( ! array_key_exists( $slug, $available_modules ) ) {
+			return false;
+		}
+
+		$module = $available_modules[ $slug ];
+
+		return $module->is_available();
+	}
+
 	/**
 	 * Get the lists of modules explicitly disabled from the 'jb-disable-modules' query string.
 	 * The parameter is a comma separated value list of module slug.
@@ -123,7 +157,7 @@ class Modules_Index {
 		return array();
 	}
 
-	public function get_feature_instance_by_slug( $slug ) {
-		return isset( $this->modules[ $slug ] ) ? $this->modules[ $slug ]->feature : false;
+	public function get_module_instance_by_slug( $slug ) {
+		return $this->available_modules[ $slug ] ?? false;
 	}
 }

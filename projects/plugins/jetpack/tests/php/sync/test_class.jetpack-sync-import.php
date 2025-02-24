@@ -3,7 +3,7 @@
 /**
  * Testing Import Syncing Events
  */
-class WP_Test_Jetpack_Sync_Import extends WP_Test_Jetpack_Sync_Base {
+class WP_Test_Jetpack_Sync_Import extends WP_Test_Jetpack_Sync_TestBase {
 	public function test_sync_export_content_event() {
 		// Can't call export_wp directly since it require no headers to be set...
 		do_action( 'export_wp', array( 'content' => 'all' ) );
@@ -77,23 +77,33 @@ class WP_Test_Jetpack_Sync_Import extends WP_Test_Jetpack_Sync_Base {
 	}
 }
 
-// We try to detect importers based in extending `WP_Importer`. Mock that class, if needed.
 // phpcs:disable Generic.Files.OneObjectStructurePerFile.MultipleFound
+/**
+ * We try to detect importers based in extending `WP_Importer`. Mock that class, if needed.
+ */
 if ( ! class_exists( 'WP_Importer', false ) ) {
 	class WP_Importer {}
 }
 
-// Mock known importer. Uses class name of a real importer plugin.
-// @phan-suppress-next-line PhanRedefinedExtendedClass -- Ignore stub definition above.
+/**
+ * Mock known importer. Uses class name of a real importer plugin.
+ */
 class RSS_Import extends WP_Importer {
+	// @phan-suppress-previous-line PhanRedefinedExtendedClass -- Ignore stub definition above.
+
+	/** Start fake import. */
 	public function start_fake_rss_import() {
 		do_action( 'import_start' );
 	}
 }
 
-// Mock unknown importer.
-// @phan-suppress-next-line PhanRedefinedExtendedClass -- Ignore stub definition above.
+/**
+ * Mock unknown importer.
+ */
 class Unknown_Import extends WP_Importer {
+	// @phan-suppress-previous-line PhanRedefinedExtendedClass -- Ignore stub definition above.
+
+	/** Start fake import. */
 	public function start_fake_import() {
 		do_action( 'import_start' );
 	}

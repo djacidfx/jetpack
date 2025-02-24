@@ -1,29 +1,59 @@
+/**
+ * External dependencies
+ */
 import {
-	JetpackEditorPanelLogo,
 	useModuleStatus,
 	isSimpleSite,
 	isAtomicSite,
+	getJetpackExtensionAvailability,
 	getRequiredPlan,
 } from '@automattic/jetpack-shared-extension-utils';
+import { JetpackEditorPanelLogo } from '@automattic/jetpack-shared-extension-utils/components';
 import { PanelBody, PanelRow } from '@wordpress/components';
+import { store as coreStore } from '@wordpress/core-data';
+import { useSelect } from '@wordpress/data';
 import { PluginPrePublishPanel } from '@wordpress/edit-post';
-import { Fragment } from '@wordpress/element';
+import { store as editorStore } from '@wordpress/editor';
+import { createPortal } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
+/**
+ * Internal dependencies
+ */
+import { isBetaExtension } from '../../editor';
 import JetpackPluginSidebar from '../../shared/jetpack-plugin-sidebar';
+import {
+	SeoAssistantSidebarEntrypoint,
+	SeoAssistantWizard,
+} from '../ai-assistant-plugin/components/seo-assistant';
+import { STORE_NAME } from '../ai-assistant-plugin/components/seo-assistant/store';
 import { SeoPlaceholder } from './components/placeholder';
 import { SeoSkeletonLoader } from './components/skeleton-loader';
 import UpsellNotice from './components/upsell';
 import SeoDescriptionPanel from './description-panel';
 import SeoNoindexPanel from './noindex-panel';
 import SeoTitlePanel from './title-panel';
-
 import './editor.scss';
 
 export const name = 'seo';
 
+const isSeoAssistantEnabled =
+	getJetpackExtensionAvailability( 'ai-seo-assistant' )?.available === true;
+
 const Seo = () => {
 	const { isLoadingModules, isChangingStatus, isModuleActive, changeStatus } =
 		useModuleStatus( 'seo-tools' );
+	const isSeoAssistantOpen = useSelect( select => select( STORE_NAME ).isOpen(), [] );
+
+	const isViewable = useSelect( select => {
+		const postTypeName = select( editorStore ).getCurrentPostType();
+		const postTypeObject = select( coreStore ).getPostType( postTypeName );
+
+		return postTypeObject?.viewable;
+	}, [] );
+	// If the post type is not viewable, do not render my plugin.
+	if ( ! isViewable ) {
+		return null;
+	}
 
 	const requiredPlan = getRequiredPlan( 'advanced-seo' );
 	const canShowUpsell = isAtomicSite() || isSimpleSite();
@@ -34,7 +64,7 @@ const Seo = () => {
 
 	if ( canShowUpsell && requiredPlan !== false ) {
 		return (
-			<Fragment>
+			<>
 				<JetpackPluginSidebar>
 					<PanelBody
 						className="jetpack-seo-panel"
@@ -44,13 +74,13 @@ const Seo = () => {
 						<UpsellNotice requiredPlan={ requiredPlan } />
 					</PanelBody>
 				</JetpackPluginSidebar>
-			</Fragment>
+			</>
 		);
 	}
 
 	if ( ! isModuleActive ) {
 		return (
-			<Fragment>
+			<>
 				<JetpackPluginSidebar>
 					<PanelBody
 						className="jetpack-seo-panel"
@@ -68,7 +98,7 @@ const Seo = () => {
 						) }
 					</PanelBody>
 				</JetpackPluginSidebar>
-			</Fragment>
+			</>
 		);
 	}
 
@@ -78,9 +108,22 @@ const Seo = () => {
 	};
 
 	return (
-		<Fragment>
+		<>
+			{ isSeoAssistantEnabled &&
+				isViewable &&
+				isSeoAssistantOpen &&
+				createPortal( <SeoAssistantWizard />, document.body ) }
 			<JetpackPluginSidebar>
 				<PanelBody className="jetpack-seo-panel" { ...jetpackSeoPanelProps }>
+					{ isSeoAssistantEnabled && isViewable && (
+						<PanelRow
+							className={ `jetpack-ai-sidebar__feature-section ${
+								isBetaExtension( 'ai-seo-assistant' ) ? 'is-beta-extension' : ''
+							}` }
+						>
+							<SeoAssistantSidebarEntrypoint disabled={ false } placement="jetpack-sidebar" />
+						</PanelRow>
+					) }
 					<PanelRow>
 						<SeoTitlePanel />
 					</PanelRow>
@@ -94,7 +137,7 @@ const Seo = () => {
 			</JetpackPluginSidebar>
 
 			<PluginPrePublishPanel { ...jetpackSeoPrePublishPanelProps }>
-				<Fragment>
+				<>
 					<PanelRow>
 						<SeoTitlePanel />
 					</PanelRow>
@@ -104,9 +147,9 @@ const Seo = () => {
 					<PanelRow>
 						<SeoNoindexPanel />
 					</PanelRow>
-				</Fragment>
+				</>
 			</PluginPrePublishPanel>
-		</Fragment>
+		</>
 	);
 };
 

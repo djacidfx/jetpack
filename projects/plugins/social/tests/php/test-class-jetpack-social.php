@@ -6,13 +6,19 @@
  */
 
 use Automattic\Jetpack\Connection\Manager as Connection_Manager;
-use Automattic\Jetpack\Social\Note;
 use WorDBless\BaseTestCase;
 
 /**
  * Main plugin file testing.
  */
 class Jetpack_Social_Test extends BaseTestCase {
+	/**
+	 * Meta tags.
+	 *
+	 * @var Jetpack_Social
+	 */
+	public $social;
+
 	/**
 	 * Initialize tests
 	 */
@@ -48,7 +54,7 @@ class Jetpack_Social_Test extends BaseTestCase {
 		// Publicize global is not available at the moment during these tests
 		$this->social = $this->getMockBuilder( Jetpack_Social::class )
 			->setConstructorArgs( array( $connection_manager ) )
-			->setMethods( array( 'calculate_scheduled_shares' ) )
+			->onlyMethods( array( 'calculate_scheduled_shares' ) )
 			->getMock();
 		$this->social->expects( $this->once() )->method( 'calculate_scheduled_shares' );
 
@@ -71,24 +77,5 @@ class Jetpack_Social_Test extends BaseTestCase {
 		do_action( 'plugins_loaded' );
 
 		$this->assertSame( 0, did_action( 'jetpack_feature_publicize_enabled' ) );
-	}
-
-	/**
-	 * Test the social notes feature.
-	 */
-	public function test_social_notes() {
-		$note = new Note();
-		$note->init();
-		$this->assertEmpty( get_option( Note::FLUSH_REWRITE_RULES_FLUSHED ) );
-		update_option( Note::JETPACK_SOCIAL_NOTE_CPT, true );
-		$note->init();
-		$this->assertTrue( get_option( Note::FLUSH_REWRITE_RULES_FLUSHED ) );
-		$note->set_enabled( false );
-		$this->assertFalse( $note->enabled() );
-		$note->init();
-		$this->assertEmpty( get_option( Note::FLUSH_REWRITE_RULES_FLUSHED ) );
-		$note->set_enabled( true );
-		$note->init();
-		$this->assertTrue( get_option( Note::FLUSH_REWRITE_RULES_FLUSHED ) );
 	}
 }

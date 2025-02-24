@@ -132,7 +132,7 @@ class WP_Test_Jetpack_Sync_Checksum extends WP_UnitTestCase {
 	/**
 	 * Array of Table Configurations with different field names.
 	 *
-	 * @return int[][]
+	 * @return array{array,bool,?string}[]
 	 */
 	public function field_validation_provider() {
 		global $wpdb;
@@ -211,7 +211,7 @@ class WP_Test_Jetpack_Sync_Checksum extends WP_UnitTestCase {
 	 *
 	 * @param array   $table_configurations Table Configuration to overide defaults.
 	 * @param boolean $is_valid             Is this a valid field name.
-	 * @param string  $field                Field under test.
+	 * @param ?string $field                Field under test.
 	 */
 	public function test_checksum_validate_fields( $table_configurations, $is_valid, $field ) {
 
@@ -221,8 +221,8 @@ class WP_Test_Jetpack_Sync_Checksum extends WP_UnitTestCase {
 		$user_id = self::factory()->user->create();
 
 		// create a post.
-		$post_id    = self::factory()->post->create( array( 'post_author' => $user_id ) );
-		$this->post = get_post( $post_id );
+		$post_id = self::factory()->post->create( array( 'post_author' => $user_id ) );
+		get_post( $post_id );
 
 		// Perform Checksum.
 		$tc     = new Table_Checksum( 'posts' );
@@ -240,7 +240,7 @@ class WP_Test_Jetpack_Sync_Checksum extends WP_UnitTestCase {
 	/**
 	 * Array of Table Configurations with non-existent field names.
 	 *
-	 * @return int[][]
+	 * @return array{array,bool,?string}[]
 	 */
 	public function field_table_validation_provider() {
 		global $wpdb;
@@ -308,7 +308,7 @@ class WP_Test_Jetpack_Sync_Checksum extends WP_UnitTestCase {
 	 *
 	 * @param array   $table_configurations Table Configuration to overide defaults.
 	 * @param boolean $is_valid             Is this a valid field name.
-	 * @param string  $field                Field under test.
+	 * @param ?string $field                Field under test.
 	 */
 	public function test_checksum_validate_fields_against_table( $table_configurations, $is_valid, $field ) {
 		global $wpdb;
@@ -319,8 +319,8 @@ class WP_Test_Jetpack_Sync_Checksum extends WP_UnitTestCase {
 		$user_id = self::factory()->user->create();
 
 		// create a post, needed to allow for field checks.
-		$post_id    = self::factory()->post->create( array( 'post_author' => $user_id ) );
-		$this->post = get_post( $post_id );
+		$post_id = self::factory()->post->create( array( 'post_author' => $user_id ) );
+		get_post( $post_id );
 
 		// Calculate checksum.
 		$tc     = new Table_Checksum( 'posts' );

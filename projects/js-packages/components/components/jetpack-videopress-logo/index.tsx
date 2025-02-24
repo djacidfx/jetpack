@@ -1,7 +1,7 @@
 import { __ } from '@wordpress/i18n';
-import classnames from 'classnames';
+import clsx from 'clsx';
 import React from 'react';
-import { JetpackLogoProps } from './types';
+import { JetpackLogoProps } from './types.js';
 
 const JetpackVideoPressLogo: React.FC< JetpackLogoProps > = ( {
 	showText = true,
@@ -17,12 +17,14 @@ const JetpackVideoPressLogo: React.FC< JetpackLogoProps > = ( {
 			x="0px"
 			y="0px"
 			viewBox={ viewBox }
-			className={ classnames( 'jetpack-videopress-logo', className ) }
+			className={ clsx( 'jetpack-videopress-logo', className ) }
 			aria-labelledby="jetpack-videopress-logo-title"
 			height={ height }
 			{ ...otherProps }
 		>
-			<desc id="jetpack-videopress-logo-title">{ __( 'VideoPress Logo', 'jetpack' ) }</desc>
+			<desc id="jetpack-videopress-logo-title">
+				{ __( 'VideoPress Logo', 'jetpack-components' ) }
+			</desc>
 			{ showText ? (
 				<>
 					<path

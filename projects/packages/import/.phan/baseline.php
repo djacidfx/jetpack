@@ -13,27 +13,24 @@ return [
     // PhanTypeMismatchArgumentProbablyReal : 3 occurrences
     // PhanTypeMismatchReturn : 2 occurrences
     // PhanTypeMismatchReturnProbablyReal : 2 occurrences
-    // PhanUndeclaredProperty : 2 occurrences
     // PhanAccessMethodInternal : 1 occurrence
     // PhanImpossibleTypeComparison : 1 occurrence
     // PhanRedundantArrayValuesCall : 1 occurrence
     // PhanTraitParentReference : 1 occurrence
-    // PhanUndeclaredClassMethod : 1 occurrence
     // PhanUndeclaredMethod : 1 occurrence
-    // PhanUndeclaredTypeReturnType : 1 occurrence
 
     // Currently, file_suppressions and directory_suppressions are the only supported suppressions
     'file_suppressions' => [
-        'src/endpoints/class-attachment.php' => ['PhanPluginMixedKeyNoKey', 'PhanTypeMismatchReturn', 'PhanUndeclaredTypeReturnType'],
+        'src/endpoints/class-attachment.php' => ['PhanPluginMixedKeyNoKey', 'PhanTypeMismatchReturn'],
         'src/endpoints/class-category.php' => ['PhanTypeMismatchArgumentProbablyReal'],
         'src/endpoints/class-end.php' => ['PhanPluginMixedKeyNoKey', 'PhanTypeMismatchReturnProbablyReal'],
         'src/endpoints/class-global-style.php' => ['PhanTypeMismatchReturn'],
         'src/endpoints/class-menu.php' => ['PhanTypeMismatchArgumentProbablyReal'],
-        'src/endpoints/class-post.php' => ['PhanAccessMethodInternal', 'PhanImpossibleTypeComparison', 'PhanRedundantArrayValuesCall', 'PhanUndeclaredClassMethod'],
+        'src/endpoints/class-post.php' => ['PhanAccessMethodInternal', 'PhanImpossibleTypeComparison', 'PhanRedundantArrayValuesCall'],
         'src/endpoints/class-start.php' => ['PhanPluginMixedKeyNoKey', 'PhanTypeMismatchReturnProbablyReal'],
         'src/endpoints/class-tag.php' => ['PhanTypeMismatchArgumentProbablyReal'],
         'src/endpoints/trait-import-id.php' => ['PhanTraitParentReference'],
-        'src/endpoints/trait-import.php' => ['PhanPluginMixedKeyNoKey', 'PhanUndeclaredMethod', 'PhanUndeclaredProperty'],
+        'src/endpoints/trait-import.php' => ['PhanPluginMixedKeyNoKey', 'PhanUndeclaredMethod'],
     ],
     // 'directory_suppressions' => ['src/directory_name' => ['PhanIssueName1', 'PhanIssueName2']] can be manually added if needed.
     // (directory_suppressions will currently be ignored by subsequent calls to --save-baseline, but may be preserved in future Phan releases)

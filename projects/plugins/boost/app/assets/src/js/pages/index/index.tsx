@@ -1,25 +1,25 @@
+import CornerstonePages from '$features/cornerstone-pages/cornerstone-pages';
+import CloudCssMeta from '$features/critical-css/cloud-css-meta/cloud-css-meta';
 import CriticalCssMeta from '$features/critical-css/critical-css-meta/critical-css-meta';
+import { useRegenerateCriticalCssAction } from '$features/critical-css/lib/stores/critical-css-state';
+import { ImageCdnLiar, QualitySettings } from '$features/image-cdn';
+import { RecommendationsMeta } from '$features/image-size-analysis';
+import MinifyCss from '$features/minify-css/minify-css';
+import MinifyJs from '$features/minify-js/minify-js';
 import { useSingleModuleState } from '$features/module/lib/stores';
 import Module from '$features/module/module';
-import UpgradeCTA from '$features/upgrade-cta/upgrade-cta';
-import { Notice, getRedirectUrl } from '@automattic/jetpack-components';
-import { createInterpolateElement, useEffect, useState } from '@wordpress/element';
-import { __ } from '@wordpress/i18n';
-import { usePremiumFeatures } from '$lib/stores/premium-features';
-import CloudCssMeta from '$features/critical-css/cloud-css-meta/cloud-css-meta';
-import MinifyMeta from '$features/minify-meta/minify-meta';
-import { QualitySettings } from '$features/image-cdn';
-import styles from './index.module.scss';
-import { RecommendationsMeta } from '$features/image-size-analysis';
-import SuperCacheInfo from '$features/super-cache-info/super-cache-info';
-import { useRegenerateCriticalCssAction } from '$features/critical-css/lib/stores/critical-css-state';
+import PageCacheModule from '$features/page-cache/page-cache';
 import PremiumTooltip from '$features/premium-tooltip/premium-tooltip';
+import Pill from '$features/ui/pill/pill';
 import Upgraded from '$features/ui/upgraded/upgraded';
-import PageCache from '$features/page-cache/page-cache';
-import { usePageCacheError, usePageCacheSetup } from '$lib/stores/page-cache';
-import Health from '$features/page-cache/health/health';
-import { useMutationNotice } from '$features/ui';
-import { useShowCacheEngineErrorNotice } from '$features/page-cache/lib/stores';
+import UpgradeCTA from '$features/upgrade-cta/upgrade-cta';
+import { usePremiumFeatures } from '$lib/stores/premium-features';
+import { recordBoostEvent } from '$lib/utils/analytics';
+import { Notice, getRedirectUrl } from '@automattic/jetpack-components';
+import { createInterpolateElement } from '@wordpress/element';
+import { __ } from '@wordpress/i18n';
+import React from 'react';
+import styles from './index.module.scss';
 
 const Index = () => {
 	const criticalCssLink = getRedirectUrl( 'jetpack-boost-critical-css' );
@@ -27,53 +27,25 @@ const Index = () => {
 
 	const [ isaState ] = useSingleModuleState( 'image_size_analysis' );
 	const [ imageCdn ] = useSingleModuleState( 'image_cdn' );
-	const [ pageCache ] = useSingleModuleState( 'page_cache' );
-
 	const regenerateCssAction = useRegenerateCriticalCssAction();
+
 	const requestRegenerateCriticalCss = () => {
 		regenerateCssAction.mutate();
 	};
-	const { canResizeImages, site } = Jetpack_Boost;
+	const { canResizeImages } = Jetpack_Boost;
 
 	const premiumFeatures = usePremiumFeatures();
 
-	const pageCacheSetup = usePageCacheSetup();
-	const [ pageCacheError, pageCacheErrorMutation ] = usePageCacheError();
-	const [ isPageCacheSettingUp, setIsPageCacheSettingUp ] = useState( false );
-	const [ runningFreshSetup, setRunningFreshSetup ] = useState( false );
-	const showCacheEngineErrorNotice = useShowCacheEngineErrorNotice(
-		pageCacheSetup.isSuccess && !! pageCache?.active
-	);
+	const hasPremiumCdnFeatures =
+		premiumFeatures.includes( 'image-cdn-liar' ) && premiumFeatures.includes( 'image-cdn-quality' );
 
-	const [ removePageCacheNotice ] = useMutationNotice(
-		'page-cache-setup',
-		{
-			...pageCacheSetup,
-
-			/*
-			 * We run page cache setup on both onMountEnabled and onEnable.
-			 * However, the mutation notice should only show when the user is responsible for the action.
-			 * So, we only show the notice if `runningFreshSetup`, unless it's an error.
-			 */
-			isSuccess: runningFreshSetup && pageCacheSetup.isSuccess,
-			isPending: runningFreshSetup && ( isPageCacheSettingUp || pageCacheSetup.isPending ),
-			isIdle: runningFreshSetup && pageCacheSetup.isIdle,
-		},
-		{
-			savingMessage: __( 'Setting up cache…', 'jetpack-boost' ),
-			errorMessage: __( 'An error occurred while setting up cache.', 'jetpack-boost' ),
-			successMessage: __( 'Cache setup complete.', 'jetpack-boost' ),
-		}
-	);
-
-	useEffect( () => {
-		if ( pageCacheSetup.isPending ) {
-			setIsPageCacheSettingUp( false );
-		}
-	}, [ pageCacheSetup.isPending ] );
+	const handleCriticalCssLink = () => {
+		recordBoostEvent( 'critical_css_link_clicked', {} );
+	};
 
 	return (
 		<div className="jb-container--narrow">
+			<CornerstonePages />
 			<Module
 				slug="critical_css"
 				title={ __( 'Optimize Critical CSS Loading (manual)', 'jetpack-boost' ) }
@@ -87,8 +59,16 @@ const Index = () => {
 									'jetpack-boost'
 								),
 								{
-									// eslint-disable-next-line jsx-a11y/anchor-has-content
-									link: <a href={ criticalCssLink } target="_blank" rel="noopener noreferrer" />,
+									link: (
+										// eslint-disable-next-line jsx-a11y/anchor-has-content
+										<a
+											href={ criticalCssLink }
+											target="_blank"
+											onClick={ handleCriticalCssLink }
+											style={ { cursor: 'pointer' } }
+											rel="noopener noreferrer"
+										/>
+									),
 								}
 							) }
 						</p>
@@ -112,6 +92,7 @@ const Index = () => {
 				<CriticalCssMeta />
 
 				<UpgradeCTA
+					identifier="critical-css"
 					description={ __(
 						'Save time by upgrading to Automatic Critical CSS generation.',
 						'jetpack-boost'
@@ -136,8 +117,16 @@ const Index = () => {
 									'jetpack-boost'
 								),
 								{
-									// eslint-disable-next-line jsx-a11y/anchor-has-content
-									link: <a href={ criticalCssLink } target="_blank" rel="noopener noreferrer" />,
+									link: (
+										// eslint-disable-next-line jsx-a11y/anchor-has-content
+										<a
+											href={ criticalCssLink }
+											target="_blank"
+											onClick={ handleCriticalCssLink }
+											style={ { cursor: 'pointer' } }
+											rel="noopener noreferrer"
+										/>
+									),
 								}
 							) }
 						</p>
@@ -157,82 +146,7 @@ const Index = () => {
 			>
 				<CloudCssMeta />
 			</Module>
-			<Module
-				slug="page_cache"
-				title={
-					<>
-						{ __( 'Cache Site Pages', 'jetpack-boost' ) }
-						<span className={ styles.beta }>Beta</span>
-					</>
-				}
-				onBeforeToggle={ status => {
-					setIsPageCacheSettingUp( status );
-					if ( status === false ) {
-						removePageCacheNotice();
-						pageCacheSetup.reset();
-					}
-					if ( pageCacheError.data && pageCacheError.data.dismissed !== true ) {
-						pageCacheErrorMutation.mutate( {
-							...pageCacheError.data,
-							dismissed: true,
-						} );
-					}
-				} }
-				onMountEnable={ () => {
-					pageCacheSetup.mutate();
-				} }
-				onEnable={ () => {
-					setRunningFreshSetup( true );
-					pageCacheSetup.mutate();
-				} }
-				description={
-					<>
-						<p>
-							{ __(
-								'Store and serve preloaded content to reduce load times and enhance your site performance and user experience.',
-								'jetpack-boost'
-							) }
-						</p>
-						{ site.isAtomic && (
-							<Notice
-								level="warning"
-								title={ __( 'Page Cache is unavailable', 'jetpack-boost' ) }
-								hideCloseButton={ true }
-							>
-								<p>
-									{ __(
-										'Your website already has a page cache running on it powered by WordPress.com.',
-										'jetpack-boost'
-									) }
-								</p>
-							</Notice>
-						) }
-						<Health
-							error={ pageCacheError.data }
-							setError={ pageCacheErrorMutation.mutate }
-							setup={ pageCacheSetup }
-						/>
-					</>
-				}
-			>
-				{ showCacheEngineErrorNotice && (
-					<Notice
-						level="warning"
-						title={ __( 'Page Cache is not working', 'jetpack-boost' ) }
-						hideCloseButton={ true }
-					>
-						<p>
-							{ __(
-								'It appears that the cache engine is not loading. Please try re-installing Jetpack Boost. If the issue persists, please contact support.',
-								'jetpack-boost'
-							) }
-						</p>
-					</Notice>
-				) }
-				{ ! showCacheEngineErrorNotice && ! pageCacheError.data && ! pageCacheSetup.isError && (
-					<PageCache />
-				) }
-			</Module>
+			<PageCacheModule />
 			<Module
 				slug="render_blocking_js"
 				title={ __( 'Defer Non-Essential JavaScript', 'jetpack-boost' ) }
@@ -244,57 +158,30 @@ const Index = () => {
 								'jetpack-boost'
 							),
 							{
-								// eslint-disable-next-line jsx-a11y/anchor-has-content
-								link: <a href={ deferJsLink } target="_blank" rel="noopener noreferrer" />,
+								link: (
+									// eslint-disable-next-line jsx-a11y/anchor-has-content
+									<a
+										onClick={ () => recordBoostEvent( 'defer_js_link_clicked', {} ) }
+										href={ deferJsLink }
+										target="_blank"
+										rel="noopener noreferrer"
+									/>
+								),
 							}
 						) }
 					</p>
 				}
 			></Module>
-			<Module
-				slug="minify_js"
-				title={ __( 'Concatenate JS', 'jetpack-boost' ) }
-				description={
-					<p>
-						{ __(
-							'Scripts are grouped by their original placement, concatenated and minified to reduce site loading time and reduce the number of requests.',
-							'jetpack-boost'
-						) }
-					</p>
-				}
-			>
-				<MinifyMeta
-					datasyncKey="minify_js_excludes"
-					inputLabel={ __( 'Exclude JS Strings:', 'jetpack-boost' ) }
-					buttonText={ __( 'Exclude JS Strings', 'jetpack-boost' ) }
-					placeholder={ __( 'Comma separated list of JS scripts to exclude', 'jetpack-boost' ) }
-				/>
-			</Module>
-			<Module
-				slug="minify_css"
-				title={ __( 'Concatenate CSS', 'jetpack-boost' ) }
-				description={
-					<p>
-						{ __(
-							'Styles are grouped by their original placement, concatenated and minified to reduce site loading time and reduce the number of requests.',
-							'jetpack-boost'
-						) }
-					</p>
-				}
-			>
-				<MinifyMeta
-					datasyncKey="minify_css_excludes"
-					inputLabel={ __( 'Exclude CSS Strings:', 'jetpack-boost' ) }
-					buttonText={ __( 'Exclude CSS Strings', 'jetpack-boost' ) }
-					placeholder={ __(
-						'Comma separated list of CSS stylesheets to exclude',
-						'jetpack-boost'
-					) }
-				/>
-			</Module>
+			<MinifyJs />
+			<MinifyCss />
 			<Module
 				slug="image_cdn"
-				title={ __( 'Image CDN', 'jetpack-boost' ) }
+				title={
+					<>
+						{ __( 'Image CDN', 'jetpack-boost' ) }
+						{ hasPremiumCdnFeatures && <Upgraded /> }
+					</>
+				}
 				description={
 					<p>
 						{ __(
@@ -304,6 +191,16 @@ const Index = () => {
 					</p>
 				}
 			>
+				{ ! hasPremiumCdnFeatures && (
+					<UpgradeCTA
+						identifier="image-cdn"
+						description={ __(
+							'Auto-resize lazy images and adjust their quality.',
+							'jetpack-boost'
+						) }
+					/>
+				) }
+				<ImageCdnLiar isPremium={ premiumFeatures.includes( 'image-cdn-liar' ) } />
 				<QualitySettings isPremium={ premiumFeatures.includes( 'image-cdn-quality' ) } />
 			</Module>
 
@@ -321,6 +218,7 @@ const Index = () => {
 							</p>
 							{ ! isaState?.available && (
 								<UpgradeCTA
+									identifier="image-guide"
 									description={ __(
 										'Upgrade to scan your site for issues - automatically!',
 										'jetpack-boost'
@@ -364,7 +262,7 @@ const Index = () => {
 					title={
 						<>
 							{ __( 'Image Size Analysis', 'jetpack-boost' ) }
-							<span className={ styles.beta }>Beta</span>
+							<Pill text={ __( 'Beta', 'jetpack-boost' ) } />
 						</>
 					}
 					description={
@@ -379,8 +277,6 @@ const Index = () => {
 					{ isaState?.active && <RecommendationsMeta isCdnActive={ !! imageCdn?.active } /> }
 				</Module>
 			</div>
-
-			{ ! pageCache?.active && <SuperCacheInfo /> }
 		</div>
 	);
 };

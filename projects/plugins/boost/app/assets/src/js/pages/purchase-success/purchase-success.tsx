@@ -1,5 +1,5 @@
-import { getRedirectUrl } from '@automattic/jetpack-components';
-import { Button, ExternalLink } from '@wordpress/components';
+import { getRedirectUrl, Button } from '@automattic/jetpack-components';
+import { ExternalLink } from '@wordpress/components';
 import { createInterpolateElement, useEffect } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
 import { useImageAnalysisRequest } from '$features/image-size-analysis';
@@ -7,6 +7,7 @@ import { useSingleModuleState } from '$features/module/lib/stores';
 import { useNavigate } from 'react-router-dom';
 import CardPage from '$layout/card-page/card-page';
 import styles from './purchase-success.module.scss';
+import { isWoaHosting } from '$lib/utils/hosting';
 
 const PurchaseSuccess: React.FC = () => {
 	const [ , setCloudCssState ] = useSingleModuleState( 'cloud_css' );
@@ -14,7 +15,7 @@ const PurchaseSuccess: React.FC = () => {
 	const [ isaState ] = useSingleModuleState( 'image_size_analysis' );
 	const navigate = useNavigate();
 	const isaRequest = useImageAnalysisRequest();
-	const { site, canResizeImages } = Jetpack_Boost;
+	const { canResizeImages } = Jetpack_Boost;
 
 	useEffect( () => {
 		setCloudCssState( true );
@@ -97,7 +98,7 @@ const PurchaseSuccess: React.FC = () => {
 				</li>
 
 				<li>
-					{ site.isAtomic
+					{ isWoaHosting()
 						? createInterpolateElement(
 								__(
 									`Dedicated email support plus priority Live Chat if <link>your plan</link> includes <strong>Premium Support</strong>`,
@@ -121,8 +122,9 @@ const PurchaseSuccess: React.FC = () => {
 			</p>
 			<Button
 				label={ __( 'Continue', 'jetpack-boost' ) }
+				variant="primary"
 				onClick={ () => navigate( '/' ) }
-				className="jp-action-button--button jb-button jb-button--primary mt-3"
+				className="mt-3"
 			>
 				{ __( 'Continue', 'jetpack-boost' ) }
 			</Button>

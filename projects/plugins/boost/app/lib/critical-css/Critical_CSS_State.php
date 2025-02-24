@@ -93,7 +93,7 @@ class Critical_CSS_State {
 	 * Set a provider's state to error.
 	 *
 	 * @param string $provider_key The provider key.
-	 * @param array $errors        A list of errors to store with this provider.
+	 * @param array  $errors        A list of errors to store with this provider.
 	 * @return bool|WP_Error True on success, WP_Error on failure.
 	 */
 	public function set_provider_errors( $provider_key, $errors ) {
@@ -183,6 +183,19 @@ class Critical_CSS_State {
 			$providers[ $key ]['status'] = self::PROVIDER_STATES['pending'];
 		}
 		$this->state['providers'] = $providers;
+		return $this;
+	}
+
+	/**
+	 * Add providers to the state, sets their status to pending
+	 * and sets the generation status to pending.
+	 *
+	 * @param array $providers The providers to include in the state and set as pending.
+	 * @return $this
+	 */
+	public function prepare_for_generation( $providers ) {
+		$this->set_pending_providers( $providers );
+		$this->state['status'] = self::GENERATION_STATES['pending'];
 		return $this;
 	}
 

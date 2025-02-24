@@ -1,7 +1,7 @@
 import React from 'react';
-import { H2, H3 } from '../index';
+import { H2, H3 } from '../index.js';
 import styles from './style.module.scss';
-import type { H3Props } from '../types';
+import type { H3Props } from '../types.js';
 
 const TIPOGRAPHY_WEIGHTS: Array< H3Props[ 'weight' ] > = [ 'regular', 'bold' ];
 
@@ -22,9 +22,9 @@ export default {
 /**
  * Helper component to create a the story.
  *
- * @param {object} props                   - Component props.
+ * @param {object}          props          - Component props.
  * @param {React.Component} props.children - Icon component children.
- * @returns {React.Component}                Text component instance.
+ * @return {React.Component}                Text component instance.
  */
 function Instance( { children } ) {
 	return (

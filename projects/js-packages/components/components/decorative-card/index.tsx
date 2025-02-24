@@ -1,4 +1,4 @@
-import type { DecorativeCardProps } from './types';
+import type { DecorativeCardProps } from './types.js';
 import type React from 'react';
 import './style.scss';
 
@@ -6,7 +6,7 @@ import './style.scss';
  * A decorative card used in the disconnection flow.
  *
  * @param {DecorativeCardProps} props - The properties.
- * @returns {React.ReactNode} - The DecorativeCard component.
+ * @return {React.ReactNode} - The DecorativeCard component.
  */
 
 const DecorativeCard: React.FC< DecorativeCardProps > = ( {

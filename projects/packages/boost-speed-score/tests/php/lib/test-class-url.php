@@ -3,7 +3,7 @@
 namespace Automattic\Jetpack\Boost_Speed_Score\Tests\Lib;
 
 use Automattic\Jetpack\Boost_Core\Lib\Url;
-use Automattic\Jetpack\Boost_Speed_Score\Tests\Base_Test_Case;
+use Automattic\Jetpack\Boost_Speed_Score\Tests\Base_TestCase;
 use Brain\Monkey\Filters;
 use Brain\Monkey\Functions;
 
@@ -12,7 +12,7 @@ use Brain\Monkey\Functions;
  *
  * @package Automattic\Jetpack\Boost_Speed_Score\Tests\Lib
  */
-class WP_Test_Url extends Base_Test_Case {
+class WP_Test_Url extends Base_TestCase {
 	/**
 	 * test normalize
 	 * @dataProvider provide_url_data
@@ -20,6 +20,7 @@ class WP_Test_Url extends Base_Test_Case {
 	public function test_normalize( $input, $expected ) {
 		$this->markTestSkipped( 'Failing for now, but not used anywhere' );
 		// Dumb, but functional remove_query_arg polyfill.
+		// @phan-suppress-next-line PhanPluginUnreachableCode
 		if ( ! function_exists( 'remove_query_arg' ) ) {
 			function remove_query_arg( $parameters, $url ) {
 				foreach ( $parameters as $parameter ) {

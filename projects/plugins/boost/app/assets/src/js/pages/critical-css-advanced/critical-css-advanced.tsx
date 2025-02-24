@@ -5,7 +5,7 @@ import {
 	useCriticalCssState,
 	useSetProviderErrorDismissedAction,
 } from '$features/critical-css/lib/stores/critical-css-state';
-import { groupErrorsByFrequency } from '$features/critical-css/lib/critical-css-errors';
+import { getPrimaryGroupedError } from '$features/critical-css/lib/critical-css-errors';
 import { BackButton, CloseButton } from '$features/ui';
 import CriticalCssErrorDescription from '$features/critical-css/error-description/error-description';
 import InfoIcon from '$svg/info';
@@ -13,7 +13,8 @@ import styles from './critical-css-advanced.module.scss';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Provider } from '$features/critical-css';
-import classNames from 'classnames';
+import clsx from 'clsx';
+import { Button } from '@automattic/jetpack-components';
 
 type HeadingMetaProps = {
 	dismissedIssues: Provider[];
@@ -117,7 +118,7 @@ const HeadingMeta = ( { dismissedIssues, showDismissedIssues }: HeadingMetaProps
 		>
 			<div ref={ ref }>
 				<p style={ { margin: 0 } }>
-					<button className="components-button is-link" onClick={ () => setShowHidden( true ) }>
+					<Button variant="link" size="small" onClick={ () => setShowHidden( true ) }>
 						{ sprintf(
 							/* translators: %d is a number of recommendations which were previously hidden by the user */
 							_n(
@@ -128,7 +129,7 @@ const HeadingMeta = ( { dismissedIssues, showDismissedIssues }: HeadingMetaProps
 							),
 							dismissedIssues.length
 						) }
-					</button>
+					</Button>
 				</p>
 			</div>
 		</animated.div>
@@ -136,6 +137,15 @@ const HeadingMeta = ( { dismissedIssues, showDismissedIssues }: HeadingMetaProps
 };
 
 const Recommendation = ( { provider, setDismissed }: RecommendationProps ) => {
+	if ( provider.errors && provider.errors.length === 0 ) {
+		return null;
+	}
+
+	const errorSet = getPrimaryGroupedError( provider.errors ? provider.errors : [] );
+	if ( ! errorSet ) {
+		return null;
+	}
+
 	const [ isDismissed, setIsDismissed ] = useState( provider.error_status === 'dismissed' );
 
 	const [ ref, { height } ] = useMeasure();
@@ -154,7 +164,7 @@ const Recommendation = ( { provider, setDismissed }: RecommendationProps ) => {
 			className={ styles[ 'recommendation-animation-wrapper' ] }
 			style={ animationStyles }
 		>
-			<div ref={ ref } className={ classNames( 'panel', styles.panel ) }>
+			<div ref={ ref } className={ clsx( 'panel', styles.panel ) }>
 				<CloseButton onClick={ () => setIsDismissed( true ) } />
 
 				<h4>
@@ -163,7 +173,7 @@ const Recommendation = ( { provider, setDismissed }: RecommendationProps ) => {
 				</h4>
 
 				<div className={ styles.problem }>
-					<CriticalCssErrorDescription errorSet={ groupErrorsByFrequency( provider )[ 0 ] } />
+					<CriticalCssErrorDescription errorSet={ errorSet } />
 				</div>
 			</div>
 		</animated.div>

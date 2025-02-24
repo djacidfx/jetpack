@@ -33,7 +33,7 @@ class Post_Settings_Test extends BaseTestCase {
 	 * Initialize tests
 	 */
 	public function set_up() {
-		$publicize = $this->getMockBuilder( Publicize::class )->disableOriginalConstructor()->setMethods( null )->getMock();
+		$publicize = $this->getMockBuilder( Publicize::class )->disableOriginalConstructor()->onlyMethods( array() )->getMock();
 		$publicize->register_post_meta();
 
 		$this->post_id       = wp_insert_post(
@@ -135,7 +135,7 @@ class Post_Settings_Test extends BaseTestCase {
 		$settings = new Post_Settings( $this->post_id );
 		$this->assertNull( $settings->get_image_url() );
 		set_post_thumbnail( $this->post_id, $this->attachment_id );
-		$this->assertEquals( '/wp-content/uploads/jetpack-logo.png', $settings->get_image_url() );
+		$this->assertEquals( wp_get_upload_dir()['baseurl'] . '/jetpack-logo.png', $settings->get_image_url() );
 		delete_post_thumbnail( $this->post_id );
 	}
 
@@ -153,7 +153,7 @@ class Post_Settings_Test extends BaseTestCase {
 			)
 		);
 		$settings = new Post_Settings( $this->post_id );
-		$this->assertEquals( '/wp-content/uploads/jetpack-logo.png', $settings->get_image_url() );
+		$this->assertEquals( wp_get_upload_dir()['baseurl'] . '/jetpack-logo.png', $settings->get_image_url() );
 	}
 
 	/**

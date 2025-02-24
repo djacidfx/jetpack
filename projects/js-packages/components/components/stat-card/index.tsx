@@ -2,21 +2,21 @@
  * External dependencies
  */
 import { Tooltip } from '@wordpress/components';
-import classnames from 'classnames';
+import clsx from 'clsx';
 /**
  * Internal dependencies
  */
-import numberFormat from '../number-format';
-import Text from '../text';
+import numberFormat from '../number-format/index.js';
+import Text from '../text/index.js';
 import styles from './style.module.scss';
-import { StatCardProps } from './types';
+import { StatCardProps } from './types.js';
 import type React from 'react';
 
 /**
  * StatCard component
  *
  * @param {StatCardProps} props - Component props.
- * @returns {React.ReactNode} - StatCard react component.
+ * @return {React.ReactNode} - StatCard react component.
  */
 const StatCard = ( { className, icon, label, value, variant = 'square' }: StatCardProps ) => {
 	const formattedValue = numberFormat( value );
@@ -26,19 +26,18 @@ const StatCard = ( { className, icon, label, value, variant = 'square' }: StatCa
 	} );
 
 	return (
-		<div className={ classnames( className, styles.wrapper, styles[ variant ] ) }>
-			<div className={ classnames( styles.icon ) }>{ icon }</div>
-			<div className={ classnames( styles.info ) }>
+		<div className={ clsx( className, styles.wrapper, styles[ variant ] ) }>
+			<div className={ clsx( styles.icon ) }>{ icon }</div>
+			<div className={ clsx( styles.info ) }>
 				<Text className={ styles.label }>{ label }</Text>
 				{ variant === 'square' ? (
-					// @todo Switch to `placement` once WordPress 6.4 is the minimum.
-					<Tooltip text={ formattedValue } position="top center">
-						<Text variant="headline-small" className={ classnames( styles.value ) }>
+					<Tooltip text={ formattedValue } placement="top">
+						<Text variant="headline-small" className={ clsx( styles.value ) }>
 							{ compactValue }
 						</Text>
 					</Tooltip>
 				) : (
-					<Text variant="title-medium-semi-bold" className={ classnames( styles.value ) }>
+					<Text variant="title-medium-semi-bold" className={ clsx( styles.value ) }>
 						{ formattedValue }
 					</Text>
 				) }

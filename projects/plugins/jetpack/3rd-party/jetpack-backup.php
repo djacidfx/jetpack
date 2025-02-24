@@ -13,7 +13,7 @@ namespace Automattic\Jetpack\Jetpack_Backup;
 use Automattic\Jetpack\Plugins_Installer;
 
 if ( ! defined( 'ABSPATH' ) ) {
-	exit;
+	exit( 0 );
 }
 
 const PLUGIN_SLUG = 'jetpack-backup';
@@ -63,7 +63,7 @@ function try_install() {
 
 	wp_safe_redirect( $redirect );
 
-	exit;
+	exit( 0 );
 }
 
 /**
@@ -97,9 +97,11 @@ function activate() {
  * Notify the user that the installation of Jetpack Backup failed.
  */
 function error_notice() {
-	?>
-	<div class="notice notice-error is-dismissible">
-		<p><?php esc_html_e( 'There was an error installing Jetpack Backup. Please try again.', 'jetpack' ); ?></p>
-	</div>
-	<?php
+	wp_admin_notice(
+		esc_html__( 'There was an error installing Jetpack Backup. Please try again.', 'jetpack' ),
+		array(
+			'type'        => 'error',
+			'dismissible' => true,
+		)
+	);
 }

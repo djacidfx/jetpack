@@ -1,7 +1,7 @@
 import React from 'react';
-import JetpackLogo from '../../jetpack-logo/index';
-import Text from '../../text/index';
-import AdminPage from '../index';
+import JetpackLogo from '../../jetpack-logo/index.js';
+import Text from '../../text/index.js';
+import AdminPage from '../index.js';
 import styles from './style.module.scss';
 import type { StoryFn, Meta } from '@storybook/react';
 
@@ -27,9 +27,7 @@ CustomHeader.args = {
 	header: (
 		<div className={ styles[ 'custom-header' ] }>
 			<JetpackLogo height={ 40 } />
-			<Text className={ styles[ 'logo-title' ] } weight="regular">
-				Next Product is coming up
-			</Text>
+			<Text className={ styles[ 'logo-title' ] }>Next Product is coming up</Text>
 		</div>
 	),
 };

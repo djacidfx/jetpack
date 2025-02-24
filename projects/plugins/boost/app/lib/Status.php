@@ -2,11 +2,16 @@
 
 namespace Automattic\Jetpack_Boost\Lib;
 
+use Automattic\Jetpack\WP_JS_Data_Sync\Contracts\Entry_Can_Get;
+use Automattic\Jetpack\WP_JS_Data_Sync\Contracts\Entry_Can_Set;
 use Automattic\Jetpack_Boost\Modules\Modules_Setup;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Cloud_CSS\Cloud_CSS;
 use Automattic\Jetpack_Boost\Modules\Optimizations\Critical_CSS\Critical_CSS;
+use Automattic\Jetpack_Boost\Modules\Optimizations\Minify\Minify;
+use Automattic\Jetpack_Boost\Modules\Optimizations\Minify\Minify_CSS;
+use Automattic\Jetpack_Boost\Modules\Optimizations\Minify\Minify_JS;
 
-class Status {
+class Status implements Entry_Can_Get, Entry_Can_Set {
 
 	/**
 	 * Slug of the optimization module which is currently being toggled
@@ -22,25 +27,35 @@ class Status {
 	 */
 	protected $status_sync_map;
 
+	/**
+	 * @var string $option_name
+	 */
+	protected $option_name;
+
 	public function __construct( $slug ) {
-		$this->slug = $slug;
+		$this->slug        = $slug;
+		$module_slug       = str_replace( '_', '-', $this->slug );
+		$this->option_name = 'jetpack_boost_status_' . $module_slug;
 
 		$this->status_sync_map = array(
-			Cloud_CSS::get_slug() => array(
+			Cloud_CSS::get_slug()  => array(
 				Critical_CSS::get_slug(),
+			),
+			Minify_CSS::get_slug() => array(
+				Minify::get_slug(),
+			),
+			Minify_JS::get_slug()  => array(
+				Minify::get_slug(),
 			),
 		);
 	}
 
-	public function update( $new_status ) {
-		$entry                          = jetpack_boost_ds_get( 'modules_state' );
-		$entry[ $this->slug ]['active'] = $new_status;
-		jetpack_boost_ds_set( 'modules_state', $entry );
+	public function get( $_fallback = false ) {
+		return get_option( $this->option_name, false );
 	}
 
-	public function is_enabled() {
-		$modules_state = jetpack_boost_ds_get( 'modules_state' );
-		return $modules_state[ $this->slug ]['active'];
+	public function set( $value ) {
+		return update_option( $this->option_name, $value );
 	}
 
 	/**
@@ -58,7 +73,7 @@ class Status {
 	 *
 	 * For example: critical-css module status should be synced with cloud-css module.
 	 *
-	 * @param $new_status
+	 * @param mixed $new_status
 	 * @return void
 	 */
 	protected function update_mapped_modules( $new_status ) {
@@ -74,9 +89,13 @@ class Status {
 			remove_action( 'jetpack_boost_module_status_updated', array( $modules_instance, 'on_module_status_update' ) );
 		}
 
-		foreach ( $this->status_sync_map[ $this->slug ] as $mapped_module ) {
-			$mapped_status = new Status( $mapped_module );
-			$mapped_status->update( $new_status );
+		foreach ( $this->status_sync_map[ $this->slug ] as $mapped_module_slug ) {
+			$mapped_status = new Status( $mapped_module_slug );
+			if ( $mapped_module_slug === 'minify' ) {
+				$mapped_status->set( jetpack_boost_minify_is_enabled() );
+			} else {
+				$mapped_status->set( $new_status );
+			}
 		}
 
 		// The moduleInstance will be there. But check just in case.

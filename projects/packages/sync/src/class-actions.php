@@ -116,7 +116,7 @@ class Actions {
 		}
 
 		if ( self::sync_via_cron_allowed() ) {
-			self::init_sync_cron_jobs();
+			add_action( 'init', array( __CLASS__, 'init_sync_cron_jobs' ), 1 );
 		} elseif ( wp_next_scheduled( 'jetpack_sync_cron' ) ) {
 			self::clear_sync_cron_jobs();
 		}
@@ -175,7 +175,9 @@ class Actions {
 		) ) {
 			self::initialize_sender();
 			add_action( 'shutdown', array( self::$sender, 'do_sync' ), 9998 );
-			add_action( 'shutdown', array( self::$sender, 'do_full_sync' ), 9999 );
+			if ( self::should_initialize_sender( true ) ) {
+				add_action( 'shutdown', array( self::$sender, 'do_full_sync' ), 9999 );
+			}
 		}
 	}
 
@@ -212,9 +214,11 @@ class Actions {
 	 * @access public
 	 * @static
 	 *
+	 * @param bool $full_sync Whether the Full Sync sender should run on shutdown for this request.
+	 *
 	 * @return bool
 	 */
-	public static function should_initialize_sender() {
+	public static function should_initialize_sender( $full_sync = false ) {
 
 		// Allow for explicit disable of Sync from request param jetpack_sync_read_only.
 		if ( isset( $_REQUEST['jetpack_sync_read_only'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification
@@ -227,9 +231,10 @@ class Actions {
 		}
 
 		/**
-		 * For now, if dedicated Sync is enabled we will always initialize send, even for GET and unauthenticated requests.
+		 * For now, if dedicated Sync is enabled we will always initialize send, even for GET and unauthenticated requests
+		 * but not for Full Sync, since it will still happen on shutdown.
 		 */
-		if ( Settings::is_dedicated_sync_enabled() ) {
+		if ( false === $full_sync && Settings::is_dedicated_sync_enabled() ) {
 			return true;
 		}
 
@@ -304,15 +309,16 @@ class Actions {
 			return false;
 		}
 
-		if ( ( new Status() )->is_staging_site() ) {
-			return false;
-		}
-
 		$connection = new Jetpack_Connection();
 		if ( ! $connection->is_connected() ) {
 			if ( ! doing_action( 'jetpack_site_registered' ) ) {
 				return false;
 			}
+		}
+
+		// By now, we know the site is connected, so we can return false if in safe mode.
+		if ( ( new Status() )->in_safe_mode() ) {
+			return false;
 		}
 
 		return true;
@@ -342,8 +348,8 @@ class Actions {
 			if ( ( new Status() )->is_offline_mode() ) {
 				$debug['debug_details']['is_offline_mode'] = true;
 			}
-			if ( ( new Status() )->is_staging_site() ) {
-				$debug['debug_details']['is_staging_site'] = true;
+			if ( ( new Status() )->in_safe_mode() ) {
+				$debug['debug_details']['in_safe_mode'] = true;
 			}
 			$connection = new Jetpack_Connection();
 			if ( ! $connection->is_connected() ) {
@@ -589,6 +595,7 @@ class Actions {
 
 		// Don't start new sync if a full sync is in process.
 		$full_sync_module = Modules::get_module( 'full-sync' );
+		'@phan-var Modules\Full_Sync_Immediately|Modules\Full_Sync $full_sync_module';
 		if ( $full_sync_module && $full_sync_module->is_started() && ! $full_sync_module->is_finished() ) {
 			return false;
 		}
@@ -601,7 +608,7 @@ class Actions {
 			'network_options' => true,
 		);
 
-		self::do_full_sync( $initial_sync_config );
+		self::do_full_sync( $initial_sync_config, 'initial_sync' );
 	}
 
 	/**
@@ -611,6 +618,7 @@ class Actions {
 	 */
 	public static function do_only_first_initial_sync() {
 		$full_sync_module = Modules::get_module( 'full-sync' );
+		'@phan-var Modules\Full_Sync_Immediately|Modules\Full_Sync $full_sync_module';
 		if ( $full_sync_module && $full_sync_module->is_started() ) {
 			return false;
 		}
@@ -625,14 +633,16 @@ class Actions {
 	 * @static
 	 *
 	 * @param array $modules  The sync modules should be included in this full sync. All will be included if null.
+	 * @param mixed $context  The context where the full sync was initiated from.
 	 * @return bool           True if full sync was successfully started.
 	 */
-	public static function do_full_sync( $modules = null ) {
+	public static function do_full_sync( $modules = null, $context = null ) {
 		if ( ! self::sync_allowed() ) {
 			return false;
 		}
 
 		$full_sync_module = Modules::get_module( 'full-sync' );
+		'@phan-var Modules\Full_Sync_Immediately|Modules\Full_Sync $full_sync_module';
 
 		if ( ! $full_sync_module ) {
 			return false;
@@ -640,7 +650,7 @@ class Actions {
 
 		self::initialize_listener();
 
-		$full_sync_module->start( $modules );
+		$full_sync_module->start( $modules, $context );
 
 		return true;
 	}
@@ -1041,7 +1051,8 @@ class Actions {
 		self::initialize_sender();
 
 		$sync_module = Modules::get_module( 'full-sync' );
-		$queue       = self::$sender->get_sync_queue();
+		'@phan-var Modules\Full_Sync_Immediately|Modules\Full_Sync $sync_module';
+		$queue = self::$sender->get_sync_queue();
 
 		// _get_cron_array can be false
 		$cron_timestamps = ( _get_cron_array() ) ? array_keys( _get_cron_array() ) : array();
@@ -1091,7 +1102,7 @@ class Actions {
 		);
 
 		// Verify $sync_module is not false.
-		if ( ( $sync_module ) && ! str_contains( get_class( $sync_module ), 'Full_Sync_Immediately' ) ) {
+		if ( $sync_module && ! $sync_module instanceof Modules\Full_Sync_Immediately ) {
 			$result['full_queue_size'] = $full_queue->size();
 			$result['full_queue_lag']  = $full_queue->lag();
 		}

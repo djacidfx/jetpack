@@ -23,7 +23,6 @@ use Symfony\Component\Console\Output\BufferedOutput;
  */
 class WordpressVersioningTest extends TestCase {
 	use \Yoast\PHPUnitPolyfills\Polyfills\AssertIsType;
-	use \Yoast\PHPUnitPolyfills\Polyfills\ExpectException;
 
 	/**
 	 * Test getOptions.
@@ -60,7 +59,7 @@ class WordpressVersioningTest extends TestCase {
 	/**
 	 * Data provider for testParseVersion.
 	 */
-	public function provideParseVersion() {
+	public static function provideParseVersion() {
 		return array(
 			array(
 				'1.2',
@@ -289,7 +288,7 @@ class WordpressVersioningTest extends TestCase {
 	/**
 	 * Data provider for testNormalizeVersion.
 	 */
-	public function provideNormalizeVersion() {
+	public static function provideNormalizeVersion() {
 		return array(
 			'add prerelease = alpha'          => array(
 				'1.2',
@@ -339,11 +338,9 @@ class WordpressVersioningTest extends TestCase {
 	public function testNextVersion( $version, array $changes, array $extra, $expect, $expectPoint = null ) {
 		$obj = new WordpressVersioning();
 
-		// @phan-suppress-next-line PhanDeprecatedFunction -- Hopefully we drop PHP <7.2 before having to deal with this, as the designated replacement isn't until PHPUnit 8.
 		$out1 = $this->getMockBuilder( BufferedOutput::class )
-			->setMethods( array( 'getErrorOutput' ) )
+			->addMethods( array( 'getErrorOutput' ) )
 			->getMock();
-		'@phan-var BufferedOutput&\PHPUnit\Framework\MockObject\MockObject $out1'; // PHPUnit 9.6 only declares `@psalm-template` and not `@template` and such so Phan can't know the right types.
 		$out2 = new BufferedOutput();
 		$out1->method( 'getErrorOutput' )->willReturn( $out2 );
 
@@ -369,7 +366,7 @@ class WordpressVersioningTest extends TestCase {
 	/**
 	 * Data provider for testNextVersion.
 	 */
-	public function provideNextVersion() {
+	public static function provideNextVersion() {
 		return array(
 			'No changes'                               => array(
 				'1.2.3',
@@ -496,7 +493,7 @@ class WordpressVersioningTest extends TestCase {
 	/**
 	 * Data provider for testCompareVersions.
 	 */
-	public function provideCompareVersions() {
+	public static function provideCompareVersions() {
 		return array(
 			array( '1.0', '==', '1.0' ),
 			array( '1.0.0', '==', '1.0' ),
@@ -548,7 +545,7 @@ class WordpressVersioningTest extends TestCase {
 	/**
 	 * Data provider for testFirstVersion.
 	 */
-	public function provideFirstVersion() {
+	public static function provideFirstVersion() {
 		return array(
 			'Normal'             => array(
 				array(),

@@ -24,6 +24,7 @@ use Automattic\Jetpack\My_Jetpack\Initializer as My_Jetpack_Initializer;
 use Automattic\Jetpack\My_Jetpack\Jetpack_Manage;
 use Automattic\Jetpack\Partner;
 use Automattic\Jetpack\Partner_Coupon as Jetpack_Partner_Coupon;
+use Automattic\Jetpack\Publicize\Keyring_Helper;
 use Automattic\Jetpack\Stats\Options as Stats_Options;
 use Automattic\Jetpack\Status;
 use Automattic\Jetpack\Status\Host;
@@ -49,7 +50,6 @@ class Jetpack_Redux_State_Helper {
 	 */
 	public static function get_initial_state() {
 		global $is_safari;
-		global $wp_version;
 
 		// Load API endpoint base classes and endpoints for getting the module list fed into the JS Admin Page.
 		require_once JETPACK__PLUGIN_DIR . '_inc/lib/core-api/class.jetpack-core-api-xmlrpc-consumer-endpoint.php';
@@ -245,49 +245,9 @@ class Jetpack_Redux_State_Helper {
 			'shouldInitializeBlaze'         => Blaze::should_initialize(),
 			'isBlazeDashboardEnabled'       => Blaze::is_dashboard_enabled(),
 			'socialInitialState'            => self::get_publicize_initial_state(),
-			'gutenbergInitialState'         => self::get_gutenberg_initial_state(),
 			'isSubscriptionSiteEnabled'     => apply_filters( 'jetpack_subscription_site_enabled', false ),
-			'subscriptionSiteEditSupported' => $current_theme->is_block_theme() && version_compare( $wp_version, '6.5-beta2', '>=' ),
-		);
-	}
-
-	/**
-	 * Get information about the Gutenberg plugin and its Interactivity API support.
-	 *
-	 * @see https://make.wordpress.org/core/tag/interactivity-api/
-	 *
-	 * @return array
-	 */
-	private static function get_gutenberg_initial_state() {
-		// If Gutenberg is not installed,
-		// check if we run a version of WP that would include support.
-		if ( ! Constants::is_true( 'IS_GUTENBERG_PLUGIN' ) ) {
-			global $wp_version;
-			return array(
-				'isAvailable'         => false,
-				'hasInteractivityApi' => version_compare( $wp_version, '6.4', '>=' ),
-			);
-		}
-
-		// If we're running a dev version, assume it's the latest.
-		if ( Constants::is_true( 'GUTENBERG_DEVELOPMENT_MODE' ) ) {
-			return array(
-				'isAvailable'         => true,
-				'hasInteractivityApi' => true,
-			);
-		}
-
-		$gutenberg_version = Constants::get_constant( 'GUTENBERG_VERSION' );
-		if ( ! $gutenberg_version ) {
-			return array(
-				'isAvailable'         => false,
-				'hasInteractivityApi' => false,
-			);
-		}
-
-		return array(
-			'isAvailable'         => true,
-			'hasInteractivityApi' => version_compare( $gutenberg_version, '16.6.0', '>=' ),
+			'newsletterDateExample'         => gmdate( get_option( 'date_format' ), time() ),
+			'subscriptionSiteEditSupported' => $current_theme->is_block_theme(),
 		);
 	}
 
@@ -298,13 +258,14 @@ class Jetpack_Redux_State_Helper {
 	 */
 	public static function get_publicize_initial_state() {
 		$jetpack_social_settings = new Automattic\Jetpack\Publicize\Jetpack_Social_Settings\Settings();
-		$settings                = $jetpack_social_settings->get_settings( true );
 
-		if ( empty( $settings ) ) {
+		$initial_state = $jetpack_social_settings->get_initial_state();
+
+		if ( empty( $initial_state ) ) {
 			return null;
 		}
 
-		return $settings;
+		return $initial_state;
 	}
 
 	/**
@@ -354,7 +315,7 @@ class Jetpack_Redux_State_Helper {
 		// This allows us to embed videopress videos into the release post.
 		add_filter( 'wp_kses_allowed_html', array( __CLASS__, 'allow_post_embed_iframe' ), 10, 2 );
 		$content = wp_kses_post( $post['content'] );
-		remove_filter( 'wp_kses_allowed_html', array( __CLASS__, 'allow_post_embed_iframe' ), 10, 2 );
+		remove_filter( 'wp_kses_allowed_html', array( __CLASS__, 'allow_post_embed_iframe' ), 10 );
 
 		$post_title = isset( $post['title'] ) ? $post['title'] : null;
 		$title      = wp_kses( $post_title, array() );
@@ -448,11 +409,10 @@ class Jetpack_Redux_State_Helper {
 	 */
 	public static function get_external_services_connect_urls() {
 		$connect_urls = array();
-		require_once JETPACK__PLUGIN_DIR . '_inc/lib/class.jetpack-keyring-service-helper.php';
 		// phpcs:disable
-		foreach ( Jetpack_Keyring_Service_Helper::SERVICES as $service_name => $service_info ) {
+		foreach ( Keyring_Helper::SERVICES as $service_name => $service_info ) {
 			// phpcs:enable
-			$connect_urls[ $service_name ] = Jetpack_Keyring_Service_Helper::connect_url( $service_name, $service_info['for'] );
+			$connect_urls[ $service_name ] = Keyring_Helper::connect_url( $service_name, $service_info['for'] );
 		}
 		return $connect_urls;
 	}
@@ -527,9 +487,11 @@ function jetpack_current_user_data() {
 		'isConnected' => $is_user_connected,
 		'isMaster'    => $is_master_user,
 		'username'    => $current_user->user_login,
+		'displayName' => $current_user->display_name,
+		'email'       => $current_user->user_email,
 		'id'          => $current_user->ID,
 		'wpcomUser'   => $dotcom_data,
-		'gravatar'    => get_avatar_url( $current_user->ID, 64, 'mm', '', array( 'force_display' => true ) ),
+		'gravatar'    => get_avatar_url( $current_user->ID ),
 		'permissions' => array(
 			'admin_page'         => current_user_can( 'jetpack_admin_page' ),
 			'connect'            => current_user_can( 'jetpack_connect' ),

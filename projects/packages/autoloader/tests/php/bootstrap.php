@@ -30,10 +30,11 @@ define( 'WPMU_PLUGIN_DIR', WP_CONTENT_DIR . DIRECTORY_SEPARATOR . 'mu-plugins' )
 
 // Load all of the test dependencies.
 require_once TEST_PACKAGE_DIR . '/vendor/autoload.php';
+require_once __DIR__ . '/lib/with-consecutive.php';
 require_once __DIR__ . '/lib/functions-wordpress.php';
 require_once __DIR__ . '/lib/functions.php';
 require_once __DIR__ . '/lib/class-test-plugin-factory.php';
-require_once __DIR__ . '/lib/class-acceptance-test-case.php';
+require_once __DIR__ . '/lib/class-acceptance-testcase.php';
 
 // As a Composer plugin the autoloader takes the contents of the `src` directory and generates an autoloader specific to each plugin.
 // In order to more effectively test the package we need to test it within that context since that is how it will be executed.
@@ -49,7 +50,7 @@ spl_autoload_register(
 		// We're only going to autoload the test autoloader files.
 		$check = substr( $class, 0, strlen( $namespace ) );
 		if ( $namespace !== $check ) {
-			return false;
+			return;
 		}
 
 		// Remove the namespace.
@@ -66,11 +67,10 @@ spl_autoload_register(
 			)
 		);
 		if ( ! is_file( $path ) ) {
-			return false;
+			return;
 		}
 
 		require_once $path;
-		return true;
 	}
 );
 

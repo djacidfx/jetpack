@@ -1,5 +1,5 @@
 /**
- * Internal dependencies
+ * External dependencies
  */
 import {
 	PROMPT_TYPE_SUMMARY_BY_TITLE,
@@ -13,10 +13,12 @@ import {
 	PROMPT_TYPE_SUMMARIZE,
 	PROMPT_TYPE_CHANGE_LANGUAGE,
 	PROMPT_TYPE_USER_PROMPT,
-	PromptTypeProp,
-	PromptItemProps,
-	BuildPromptProps,
-} from './index';
+	PROMPT_TYPE_TRANSFORM_LIST_TO_TABLE,
+} from '@automattic/jetpack-ai-client';
+/**
+ * Internal dependencies
+ */
+import { PromptTypeProp, PromptItemProps, BuildPromptProps } from './index';
 
 /**
  * Constants
@@ -30,7 +32,7 @@ const SUBJECT_DEFAULT = null;
  * system prompt.
  *
  * @param {PromptTypeProp} promptType - The internal type of the prompt.
- * @returns {PromptItemProps} The initial message.
+ * @return {PromptItemProps} The initial message.
  */
 export function buildInitialMessageForBackendPrompt( promptType: PromptTypeProp ): PromptItemProps {
 	// The basic template for the message.
@@ -47,10 +49,10 @@ export function buildInitialMessageForBackendPrompt( promptType: PromptTypeProp 
  * Builds the relevant content message, if applicable.
  *
  * @param {boolean} isContentGenerated - Whether the current content was generated.
- * @param {string} relevantContent - The relevant content.
- * @returns {PromptItemProps} The initial message.
+ * @param {string}  relevantContent    - The relevant content.
+ * @return {PromptItemProps} The initial message.
  */
-function buildRelevantContentMessageForBackendPrompt(
+export function buildRelevantContentMessageForBackendPrompt(
 	isContentGenerated?: boolean,
 	relevantContent?: string | null
 ): PromptItemProps | null {
@@ -72,7 +74,7 @@ function buildRelevantContentMessageForBackendPrompt(
  * based on the type of prompt.
  *
  * @param {BuildPromptProps} options - The prompt options.
- * @returns {Array< PromptItemProps >} The prompt.
+ * @return {Array< PromptItemProps >} The prompt.
  */
 export function buildMessagesForBackendPrompt( {
 	generatedContent,
@@ -110,6 +112,9 @@ export function buildMessagesForBackendPrompt( {
 		case PROMPT_TYPE_CHANGE_LANGUAGE:
 			relevantContent = isContentGenerated ? generatedContent : allPostContent;
 			break;
+		case PROMPT_TYPE_TRANSFORM_LIST_TO_TABLE:
+			relevantContent = postContentAbove;
+			break;
 		case PROMPT_TYPE_USER_PROMPT:
 			relevantContent = generatedContent || allPostContent;
 			break;
@@ -145,10 +150,10 @@ export function buildMessagesForBackendPrompt( {
 /**
  * Gets the subject of the prompt.
  *
- * @param {boolean} isGeneratingTitle - Whether the action is to generate a title.
+ * @param {boolean} isGeneratingTitle  - Whether the action is to generate a title.
  * @param {boolean} isContentGenerated - Whether the current content was generated.
- * @param {boolean} isFromExtension - Whether the content is from the extension.
- * @returns {string} The subject.
+ * @param {boolean} isFromExtension    - Whether the content is from the extension.
+ * @return {string} The subject.
  */
 function getSubject(
 	isGeneratingTitle?: boolean,
@@ -170,9 +175,9 @@ function getSubject(
  * and the options of the prompt.
  *
  * @param {BuildPromptProps} options - The prompt options.
- * @returns {object} The context.
+ * @return {object} The context.
  */
-function buildMessageContextForUserPrompt( {
+export function buildMessageContextForUserPrompt( {
 	options,
 	type,
 	userPrompt,
@@ -205,9 +210,13 @@ function buildMessageContextForUserPrompt( {
  * Maps the internal prompt type to the backend prompt type.
  *
  * @param {PromptTypeProp} promptType - The internal type of the prompt.
- * @returns {string} The backend type of the prompt.
+ * @param {string}         extension  - The extension of the prompt, if any.
+ * @return {string}                    The backend type of the prompt.
  */
-function mapInternalPromptTypeToBackendPromptType( promptType: PromptTypeProp ): string {
+export function mapInternalPromptTypeToBackendPromptType(
+	promptType: PromptTypeProp,
+	extension?: string
+): string {
 	const map = {
 		[ PROMPT_TYPE_SUMMARY_BY_TITLE ]: 'ai-assistant-summary-by-title',
 		[ PROMPT_TYPE_CONTINUE ]: 'ai-assistant-continue-writing',
@@ -220,7 +229,18 @@ function mapInternalPromptTypeToBackendPromptType( promptType: PromptTypeProp ):
 		[ PROMPT_TYPE_SUMMARIZE ]: 'ai-assistant-summarize',
 		[ PROMPT_TYPE_CHANGE_LANGUAGE ]: 'ai-assistant-change-language',
 		[ PROMPT_TYPE_USER_PROMPT ]: 'ai-assistant-user-prompt',
+		[ PROMPT_TYPE_TRANSFORM_LIST_TO_TABLE ]: 'ai-assistant-transform-list-to-table',
 	};
+
+	// Handle specific Jetpack Form AI migration.
+	// This should be an exception since it's was feature made before inline extensions.
+	if ( extension === 'form-ai' ) {
+		return 'form-ai-extension';
+	}
+
+	if ( extension ) {
+		return `${ map[ promptType ] }-${ extension }-extension`;
+	}
 
 	return map[ promptType ];
 }

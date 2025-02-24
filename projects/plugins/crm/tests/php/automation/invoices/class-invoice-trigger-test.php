@@ -9,16 +9,19 @@ use Automattic\Jetpack\CRM\Automation\Triggers\Invoice_Deleted;
 use Automattic\Jetpack\CRM\Automation\Triggers\Invoice_Status_Updated;
 use Automattic\Jetpack\CRM\Automation\Triggers\Invoice_Updated;
 use Automattic\Jetpack\CRM\Entities\Invoice;
-use Automattic\Jetpack\CRM\Tests\JPCRM_Base_Test_Case;
+use Automattic\Jetpack\CRM\Tests\JPCRM_Base_TestCase;
 
 require_once __DIR__ . '../../tools/class-automation-faker.php';
 
 /**
  * Test Automation Workflow functionalities
  *
- * @covers Automattic\Jetpack\CRM\Automation
+ * @covers Automattic\Jetpack\CRM\Automation\Triggers\Invoice_Created
+ * @covers Automattic\Jetpack\CRM\Automation\Triggers\Invoice_Deleted
+ * @covers Automattic\Jetpack\CRM\Automation\Triggers\Invoice_Status_Updated
+ * @covers Automattic\Jetpack\CRM\Automation\Triggers\Invoice_Updated
  */
-class Invoice_Trigger_Test extends JPCRM_Base_Test_Case {
+class Invoice_Trigger_Test extends JPCRM_Base_TestCase {
 
 	private $automation_faker;
 

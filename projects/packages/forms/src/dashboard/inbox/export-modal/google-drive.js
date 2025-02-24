@@ -1,9 +1,10 @@
 /**
  * External dependencies
  */
+import { useAnalytics } from '@automattic/jetpack-shared-extension-utils';
 import { useCallback, useState } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import classnames from 'classnames';
+import clsx from 'clsx';
 import { tap } from 'lodash';
 /**
  * Internal dependencies
@@ -13,6 +14,7 @@ import { isWpcom } from '../util';
 
 const GoogleDriveExport = ( { onExport } ) => {
 	const [ isConnected, setIsConnected ] = useState( config( 'gdriveConnection' ) );
+	const { tracks } = useAnalytics();
 
 	const pollForConnection = useCallback( () => {
 		const interval = setInterval( async () => {
@@ -37,21 +39,32 @@ const GoogleDriveExport = ( { onExport } ) => {
 
 				clearInterval( interval );
 				setIsConnected( true );
-			} catch ( error ) {
+			} catch {
 				clearInterval( interval );
 			}
 		}, 5000 );
 	}, [ isConnected ] );
 
 	const exportToGoogleDrive = useCallback( () => {
+		tracks.recordEvent( 'jetpack_forms_export_click', {
+			destination: 'google-drive',
+			screen: 'form-responses-inbox',
+		} );
 		onExport( 'grunion_export_to_gdrive', 'feedback_export_nonce_gdrive' )
 			.then( response => response.json() )
 			.then( ( { data } ) => {
 				window.open( data.sheet_link, '_blank' );
 			} );
-	}, [ onExport ] );
+	}, [ tracks, onExport ] );
 
-	const buttonClasses = classnames( 'button', 'export-button', 'export-gdrive', {
+	const handleConnectClick = useCallback( () => {
+		pollForConnection();
+		tracks.recordEvent( 'jetpack_forms_upsell_googledrive_click', {
+			screen: 'form-responses-inbox',
+		} );
+	}, [ tracks, pollForConnection ] );
+
+	const buttonClasses = clsx( 'button', 'export-button', 'export-gdrive', {
 		'button-primary': ! isWpcom(),
 	} );
 
@@ -107,7 +120,7 @@ const GoogleDriveExport = ( { onExport } ) => {
 							className={ buttonClasses }
 							rel="noopener noreferrer"
 							target="_blank"
-							onClick={ pollForConnection }
+							onClick={ handleConnectClick }
 						>
 							{ __( 'Connect to Google Drive', 'jetpack-forms' ) }
 						</a>

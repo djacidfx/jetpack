@@ -1,11 +1,11 @@
 === Jetpack Boost - Website Speed, Performance and Critical CSS  ===
-Contributors: automattic, xwp, adnan007, bjorsch, danwalmsley, davidlonjon, dilirity, donncha, ebinnion, exelero, jeherve, jpolakovic, karthikbhatb, kraftbj, luchad0res, pyronaur, rheinardkorf, scruffian, thingalon
+Contributors: automattic, xwp, adnan007, bjorsch, danwalmsley, davidlonjon, dilirity, donncha, ebinnion, exelero, jeherve, jpolakovic, karthikbhatb, kraftbj, lsarsfield, luchad0res, pyronaur, rheinardkorf, scruffian, thingalon
 Donate link: https://automattic.com
 Tags: performance, speed, web vitals, critical css, cache
-Requires at least: 5.5
-Tested up to: 6.5
-Requires PHP: 7.0
-Stable tag: 3.2.2
+Requires at least: 6.6
+Tested up to: 6.7
+Requires PHP: 7.2
+Stable tag: 3.9.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -43,9 +43,9 @@ Currently, the plugin has 6 performance modules available:
 
 2. *Page Cache* speeds up your site by saving pages as static files. These files are quickly served to visitors, reducing load times and enhancing user experience.
 
-3. *Defer Non-Essential Javascript* moves some tasks to after the page loads, so that important visual information can be seen sooner and your website loads quicker.
+3. *Defer Non-Essential JavaScript* moves some tasks to after the page loads, so that important visual information can be seen sooner and your website loads quicker.
 
-   Read more about deferring javascript at [web.dev](https://jetpack.com/redirect/?source=jetpack-boost-defer-js)
+   Read more about deferring JavaScript at [web.dev](https://jetpack.com/redirect/?source=jetpack-boost-defer-js)
 
 4. *Image Guide* is a must-have feature for anyone who wants to optimize the images on their website. With this guide, you can ensure that the images on your site are the right size and dimensions, which is critical for improving user experience, page speed, and site ranking. Following the tips and best practices outlined in the guide, you can reduce image file sizes and speed up your site. Check out our [support page](https://jetpack.com/support/jetpack-boost/image-performance-guide/) to learn more about this feature and how it can help you achieve a faster and smoother website experience for your users.
 
@@ -183,21 +183,19 @@ If you run into compatibility issues, please do let us know. You can drop us a l
 2. Jetpack Boost Speed Improvement
 
 == Changelog ==
-### 3.2.2 - 2024-04-02
+### 3.9.0 - 2025-02-17
 #### Added
-- Cache: Ensure cache engine is loading every time the Settings page loads.
-- Cache: Clear cache if Boost module settings are changed
-- Cache: Show notification in site health if cache system isn't loading.
-- Compatibility: Improved compatibility with SEO plugins for smoother Cloud CSS generation.
+- Cloud CSS: Handle prioritized cloud CSS regeneration for cornerstone pages updates.
+- Concatenate JS: Add compatibility with "Depay Payments for WooCommerce".
+- Speed Scores: Add tracking for speed score pop-out CTA.
 
 #### Changed
-- Cloud CSS: Optimize regeneration time.
-- Cloud CSS: Update REST API endpoint to be available even if the module is turned off.
-- Performance History: Sanitize graph annotation text.
-- Speed Score: More accurately detect which modules are active when a speed score is requested.
-- General: Only show installation errors on plugins page.
-- General: Updated package dependencies.
-- General: Update getting started and upgrade copies.
+- Admin Panel: Cleanup CSS styles.
+- Concatenate JS/CSS: Update concatenated assets to be stored on the server as files.
+- Updated package dependencies.
+
+#### Fixed
+- UI: Fix UI discrepancy in Boost settings page upon toggling multiple Modules at same time.
 
 --------
 

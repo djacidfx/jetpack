@@ -31,6 +31,16 @@ function videopress_is_valid_guid( $guid ) {
 }
 
 /**
+ * Validates user-supplied video preload setting.
+ *
+ * @param mixed $value the preload value to validate.
+ * @return bool
+ */
+function videopress_is_valid_preload( $value ) {
+	return in_array( strtolower( $value ), array( 'auto', 'metadata', 'none' ), true );
+}
+
+/**
  * Get details about a specific video by GUID:
  *
  * @param string $guid Video GUID.
@@ -490,6 +500,7 @@ function video_get_info_by_blogpostid( $blog_id, $post_id ) {
 	$video_info->description     = $post->post_content;
 	$video_info->title           = $post->post_title;
 	$video_info->caption         = $post->post_excerpt;
+	$video_info->privacy_setting = VIDEOPRESS_PRIVACY::SITE_DEFAULT;
 
 	if ( is_wp_error( $post ) ) {
 		return $video_info;

@@ -1,13 +1,12 @@
-import { createInterpolateElement } from '@wordpress/element';
-import CollapsibleMeta from '../collapsible-meta/collapsible-meta';
+import CollapsibleMeta from '$features/ui/collapsible-meta/collapsible-meta';
 import { __, sprintf } from '@wordpress/i18n';
 import styles from './quality-settings.module.scss';
 import { IconTooltip } from '@automattic/jetpack-components';
 import QualityControl from '../quality-control/quality-control';
-import Upgraded from '$features/ui/upgraded/upgraded';
 import { imageCdnSettingsSchema, useImageCdnQuality } from '../lib/stores';
 import { z } from 'zod';
-import { Link } from 'react-router-dom';
+import ModuleSubsection from '$features/ui/module-subsection/module-subsection';
+import { useMutationNotice } from '$features/ui/mutation-notice/mutation-notice';
 
 type QualitySettingsProps = {
 	isPremium: boolean;
@@ -15,17 +14,14 @@ type QualitySettingsProps = {
 
 const QualitySettings = ( { isPremium }: QualitySettingsProps ) => {
 	if ( ! isPremium ) {
-		return createInterpolateElement(
-			__( `For more control over image quality, <link>upgrade now!</link>`, 'jetpack-boost' ),
-			{
-				link: <Link to="/upgrade" />,
-			}
-		);
+		return;
 	}
 
 	const [ query, mutation ] = useImageCdnQuality();
 	const imageCdnQuality = query?.data;
 	const setImageCdnQuality = mutation.mutate;
+
+	useMutationNotice( 'image-cdn-quality', mutation );
 
 	const setQuality = ( format: 'jpg' | 'png' | 'webp', newValue: number ) => {
 		if ( ! setImageCdnQuality || ! imageCdnQuality ) {
@@ -55,37 +51,44 @@ const QualitySettings = ( { isPremium }: QualitySettingsProps ) => {
 
 	return (
 		imageCdnQuality && (
-			<CollapsibleMeta
-				editText={ __( 'Change Image Quality', 'jetpack-boost' ) }
-				closeEditText={ __( 'Close', 'jetpack-boost' ) }
-				header={ <Header /> }
-				summary={ <Summary imageCdnQuality={ imageCdnQuality } /> }
-			>
-				<QualityControl
-					label={ __( 'JPEG', 'jetpack-boost' ) }
-					maxValue={ 89 }
-					quality={ imageCdnQuality.jpg.quality }
-					lossless={ imageCdnQuality.jpg.lossless }
-					setQuality={ value => setQuality( 'jpg', value ) }
-					setLossless={ value => setLossless( 'jpg', value ) }
-				/>
-				<QualityControl
-					label={ __( 'PNG', 'jetpack-boost' ) }
-					maxValue={ 80 }
-					quality={ imageCdnQuality.png.quality }
-					lossless={ imageCdnQuality.png.lossless }
-					setQuality={ value => setQuality( 'png', value ) }
-					setLossless={ value => setLossless( 'png', value ) }
-				/>
-				<QualityControl
-					label={ __( 'WEBP', 'jetpack-boost' ) }
-					maxValue={ 80 }
-					quality={ imageCdnQuality.webp.quality }
-					lossless={ imageCdnQuality.webp.lossless }
-					setQuality={ value => setQuality( 'webp', value ) }
-					setLossless={ value => setLossless( 'webp', value ) }
-				/>
-			</CollapsibleMeta>
+			<ModuleSubsection>
+				<CollapsibleMeta
+					toggleText={ __( 'Adjust Quality', 'jetpack-boost' ) }
+					header={ <Header /> }
+					summary={ <Summary imageCdnQuality={ imageCdnQuality } /> }
+					tracksEvent="image_cdn_panel_toggle"
+				>
+					<div className={ styles.body }>
+						<h5>Adjust image quality per format</h5>
+						<div className={ styles[ 'quality-controls' ] }>
+							<QualityControl
+								label={ __( 'JPEG', 'jetpack-boost' ) }
+								maxValue={ 89 }
+								quality={ imageCdnQuality.jpg.quality }
+								lossless={ imageCdnQuality.jpg.lossless }
+								setQuality={ value => setQuality( 'jpg', value ) }
+								setLossless={ value => setLossless( 'jpg', value ) }
+							/>
+							<QualityControl
+								label={ __( 'PNG', 'jetpack-boost' ) }
+								maxValue={ 80 }
+								quality={ imageCdnQuality.png.quality }
+								lossless={ imageCdnQuality.png.lossless }
+								setQuality={ value => setQuality( 'png', value ) }
+								setLossless={ value => setLossless( 'png', value ) }
+							/>
+							<QualityControl
+								label={ __( 'WEBP', 'jetpack-boost' ) }
+								maxValue={ 80 }
+								quality={ imageCdnQuality.webp.quality }
+								lossless={ imageCdnQuality.webp.lossless }
+								setQuality={ value => setQuality( 'webp', value ) }
+								setLossless={ value => setLossless( 'webp', value ) }
+							/>
+						</div>
+					</div>
+				</CollapsibleMeta>
+			</ModuleSubsection>
 		)
 	);
 };
@@ -114,20 +117,19 @@ const Summary = ( {
 
 const Header = () => (
 	<div className={ styles[ 'section-title' ] }>
-		{ __( 'Image Quality', 'jetpack-boost' ) }
+		<h4>{ __( 'Image Quality', 'jetpack-boost' ) }</h4>
 		<IconTooltip
-			offset={ 8 }
+			offset={ 12 }
 			placement={ 'bottom' }
 			className={ styles[ 'info-icon' ] }
 			title={ __( 'Image Quality', 'jetpack-boost' ) }
+			iconSize={ 22 }
 		>
 			{ __(
 				'Select the quality for images served by the CDN. Choosing a lower quality will compress your images and load them faster. If you choose lossless, we will not compress your images.',
 				'jetpack-boost'
 			) }
 		</IconTooltip>
-
-		<Upgraded />
 	</div>
 );
 

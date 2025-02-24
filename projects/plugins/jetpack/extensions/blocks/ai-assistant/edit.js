@@ -1,38 +1,50 @@
 /**
  * External dependencies
  */
-import { AIControl, UpgradeMessage } from '@automattic/jetpack-ai-client';
-import { useAnalytics } from '@automattic/jetpack-shared-extension-utils';
+import {
+	BlockAIControl,
+	UpgradeMessage,
+	renderHTMLFromMarkdown,
+	PROMPT_TYPE_GENERATE_TITLE,
+	mapActionToHumanText,
+	QuotaExceededMessage,
+	FairUsageNotice,
+	useAICheckout,
+	useAiFeature,
+} from '@automattic/jetpack-ai-client';
+import {
+	useAnalytics,
+	PLAN_TYPE_FREE,
+	PLAN_TYPE_UNLIMITED,
+	usePlanType,
+	isUserConnected,
+} from '@automattic/jetpack-shared-extension-utils';
 import { useBlockProps, InspectorControls } from '@wordpress/block-editor';
 import { rawHandler } from '@wordpress/blocks';
-import { Notice, PanelBody, PanelRow, KeyboardShortcuts } from '@wordpress/components';
+import {
+	Notice,
+	PanelBody,
+	PanelRow,
+	KeyboardShortcuts,
+	ExternalLink,
+} from '@wordpress/components';
 import { useViewportMatch } from '@wordpress/compose';
 import { useSelect, useDispatch } from '@wordpress/data';
-import { RawHTML, useState, useCallback } from '@wordpress/element';
+import { RawHTML, useState, useCallback, useEffect, useRef } from '@wordpress/element';
 import { __ } from '@wordpress/i18n';
-import classNames from 'classnames';
-import MarkdownIt from 'markdown-it';
-import { useEffect, useRef } from 'react';
+import clsx from 'clsx';
 /**
  * Internal dependencies
  */
 import UsagePanel from '../../plugins/ai-assistant-plugin/components/usage-panel';
 import { USAGE_PANEL_PLACEMENT_BLOCK_SETTINGS_SIDEBAR } from '../../plugins/ai-assistant-plugin/components/usage-panel/types';
-import { PLAN_TYPE_FREE, usePlanType } from '../../shared/use-plan-type';
-import ConnectPrompt from './components/connect-prompt';
+import ConnectBanner from '../../shared/components/connect-banner';
 import FeedbackControl from './components/feedback-control';
 import ToolbarControls from './components/toolbar-controls';
-import UpgradePrompt from './components/upgrade-prompt';
-import { getStoreBlockId } from './extensions/ai-assistant/with-ai-assistant';
 import useAIAssistant from './hooks/use-ai-assistant';
-import useAICheckout from './hooks/use-ai-checkout';
-import useAiFeature from './hooks/use-ai-feature';
-import { isUserConnected } from './lib/connection';
+import useAiProductPage from './hooks/use-ai-product-page';
+import { getStoreBlockId } from './hooks/use-transform-to-assistant';
 import './editor.scss';
-
-const markdownConverter = new MarkdownIt( {
-	breaks: true,
-} );
 
 const isInBlockEditor = window?.Jetpack_Editor_Initial_State?.screenBase === 'post';
 
@@ -48,6 +60,10 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 	const { replaceBlocks, removeBlock } = useDispatch( 'core/block-editor' );
 	const { editPost } = useDispatch( 'core/editor' );
 
+	const [ lastAction, setLastAction ] = useState(
+		mapActionToHumanText( attributes.preTransformAction )
+	);
+
 	const {
 		isOverLimit,
 		requireUpgrade,
@@ -55,6 +71,8 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 		requestsCount,
 		requestsLimit,
 		currentTier,
+		loading: loadingAiFeature,
+		tierPlansEnabled,
 	} = useAiFeature();
 	const requestsRemaining = Math.max( requestsLimit - requestsCount, 0 );
 
@@ -94,10 +112,15 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 		requestingState,
 		error,
 	} = useAIAssistant( {
-		onSuggestionDone: useCallback( () => {
-			focusOnPrompt();
-			increaseRequestsCount();
-		}, [ increaseRequestsCount ] ),
+		onSuggestionDone: useCallback(
+			skipRequestCount => {
+				focusOnPrompt();
+				if ( ! skipRequestCount ) {
+					increaseRequestsCount();
+				}
+			},
+			[ increaseRequestsCount ]
+		),
 		onUnclearPrompt: useCallback( () => {
 			focusOnBlock();
 			increaseRequestsCount();
@@ -118,6 +141,8 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 	const isLoadingCompletion = [ 'requesting', 'suggesting' ].includes( requestingState );
 
 	const connected = isUserConnected();
+
+	const { productPageUrl } = useAiProductPage();
 
 	/*
 	 * Auto request the prompt if we detect
@@ -183,14 +208,14 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 		return lastEditableElement;
 	};
 
-	const isGeneratingTitle = attributes.promptType === 'generateTitle';
+	const isGeneratingTitle = attributes.promptType === PROMPT_TYPE_GENERATE_TITLE;
 
 	const acceptContentLabel = __( 'Accept', 'jetpack' );
 	const acceptTitleLabel = __( 'Accept title', 'jetpack' );
 	const acceptLabel = isGeneratingTitle ? acceptTitleLabel : acceptContentLabel;
 
 	const moveCaretToEnd = element => {
-		const selection = window.getSelection();
+		const selection = element.ownerDocument.getSelection();
 		selection.selectAllChildren( element );
 		selection.collapseToEnd();
 		element.focus();
@@ -199,7 +224,6 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 	const handleGetSuggestion = ( ...args ) => {
 		getSuggestionFromOpenAI( ...args );
 		focusOnBlock();
-		return;
 	};
 
 	const handleChange = value => {
@@ -208,6 +232,7 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 	};
 
 	const handleSend = () => {
+		setLastAction( attributes.userPrompt );
 		handleGetSuggestion( 'userPrompt' );
 		tracks.recordEvent( 'jetpack_ai_assistant_block_generate', { feature: 'ai-assistant' } );
 	};
@@ -222,16 +247,8 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 
 	const replaceContent = async () => {
 		let newGeneratedBlocks = [];
-		/*
-		 * Markdown-syntax content
-		 * - Get HTML code from markdown content
-		 * - Create blocks from HTML code
-		 */
-		let HTML = markdownConverter
-			.render( attributes.content || '' )
-			// Fix list indentation
-			.replace( /<li>\s+<p>/g, '<li>' )
-			.replace( /<\/p>\s+<\/li>/g, '</li>' );
+
+		let HTML = renderHTMLFromMarkdown( { content: attributes.content || '' } );
 
 		const seemsToIncludeTitle =
 			HTML?.split( '\n' ).length > 1 && HTML?.split( '\n' )?.[ 0 ]?.match( /^<h1>.*<\/h1>$/ );
@@ -294,9 +311,15 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 		tracks.recordEvent( 'jetpack_ai_assistant_block_stop', { feature: 'ai-assistant' } );
 	};
 
+	const handleGetSuggestionFromToolbar = ( type, options ) => {
+		const humanText = mapActionToHumanText( type, options );
+		setLastAction( humanText );
+		getSuggestionFromOpenAI( type, options );
+	};
+
 	const blockProps = useBlockProps( {
 		ref: blockRef,
-		className: classNames( { 'is-waiting-response': isWaitingResponse } ),
+		className: clsx( { 'is-waiting-response': isWaitingResponse } ),
 	} );
 
 	const promptPlaceholder = __( 'Ask Jetpack AI…', 'jetpack' );
@@ -304,8 +327,8 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 
 	const banner = (
 		<>
-			{ isOverLimit && isSelected && <UpgradePrompt placement="ai-assistant-block" /> }
-			{ ! connected && <ConnectPrompt /> }
+			{ isOverLimit && isSelected && <QuotaExceededMessage placement="ai-assistant-block" /> }
+			{ ! connected && <ConnectBanner block="AI Assistant" /> }
 		</>
 	);
 
@@ -322,6 +345,9 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 			) }
 		</>
 	);
+
+	const fairUsageNotice =
+		isOverLimit && planType === PLAN_TYPE_UNLIMITED ? <FairUsageNotice variant="muted" /> : null;
 
 	const trackUpgradeClick = useCallback(
 		event => {
@@ -350,15 +376,31 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 			<div { ...blockProps }>
 				{ contentIsLoaded && (
 					<div ref={ contentRef } className="jetpack-ai-assistant__content">
-						<RawHTML>{ markdownConverter.render( attributes.content ) }</RawHTML>
+						<RawHTML>{ renderHTMLFromMarkdown( { content: attributes.content || '' } ) }</RawHTML>
 					</div>
 				) }
 				<InspectorControls>
-					<PanelBody initialOpen={ true }>
-						<PanelRow>
-							<UsagePanel placement={ USAGE_PANEL_PLACEMENT_BLOCK_SETTINGS_SIDEBAR } />
-						</PanelRow>
-					</PanelBody>
+					{ fairUsageNotice && (
+						<div className="block-editor-block-card" style={ { paddingTop: 0 } }>
+							<span className="block-editor-block-icon"></span>
+							{ fairUsageNotice }
+						</div>
+					) }
+					{ /* Mock BlockCard component styles to keep alignment */ }
+					<div className="block-editor-block-card" style={ { paddingTop: 0 } }>
+						<span className="block-editor-block-icon"></span>
+						<ExternalLink href={ productPageUrl }>
+							{ __( 'Discover all features', 'jetpack' ) }
+						</ExternalLink>
+					</div>
+					{ ( planType === PLAN_TYPE_FREE ||
+						( tierPlansEnabled && planType !== PLAN_TYPE_UNLIMITED ) ) && (
+						<PanelBody initialOpen={ true }>
+							<PanelRow>
+								<UsagePanel placement={ USAGE_PANEL_PLACEMENT_BLOCK_SETTINGS_SIDEBAR } />
+							</PanelRow>
+						</PanelBody>
+					) }
 					<PanelBody initialOpen={ true }>
 						<PanelRow>
 							<FeedbackControl />
@@ -370,7 +412,7 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 					<ToolbarControls
 						isWaitingState={ isLoadingCompletion }
 						contentIsLoaded={ contentIsLoaded }
-						getSuggestionFromOpenAI={ getSuggestionFromOpenAI }
+						getSuggestionFromOpenAI={ handleGetSuggestionFromToolbar }
 						retryRequest={ retryRequest }
 						handleAcceptContent={ handleAcceptContent }
 						handleAcceptTitle={ handleAcceptTitle }
@@ -396,7 +438,7 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 						isGeneratingTitle={ isGeneratingTitle }
 					/>
 				) }
-				<AIControl
+				<BlockAIControl
 					ref={ aiControlRef }
 					disabled={ requireUpgrade || ! connected }
 					value={ attributes.userPrompt }
@@ -413,11 +455,12 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 					acceptLabel={ acceptLabel }
 					showGuideLine={ contentIsLoaded }
 					showRemove={ attributes?.content?.length > 0 }
-					bannerComponent={ banner }
-					errorComponent={ errorNotice }
+					banner={ banner }
+					error={ errorNotice }
 					customFooter={
 						// Only show the upgrade message on each 5th request or if it's the first request - and only if the user is on the free plan
 						( requestsRemaining % 5 === 0 || requestsCount === 1 ) &&
+						! loadingAiFeature && // Don't show the upgrade message while the feature is loading
 						planType === PLAN_TYPE_FREE ? (
 							<UpgradeMessage
 								requestsRemaining={ requestsRemaining }
@@ -425,6 +468,7 @@ export default function AIAssistantEdit( { attributes, setAttributes, clientId, 
 							/>
 						) : null
 					}
+					lastAction={ lastAction }
 				/>
 			</div>
 		</KeyboardShortcuts>

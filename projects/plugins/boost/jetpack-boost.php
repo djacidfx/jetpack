@@ -9,15 +9,15 @@
  * Plugin Name:       Jetpack Boost
  * Plugin URI:        https://jetpack.com/boost
  * Description:       Boost your WordPress site's performance, from the creators of Jetpack
- * Version: 3.2.3-alpha
+ * Version: 3.9.0
  * Author:            Automattic - Jetpack Site Speed team
  * Author URI:        https://jetpack.com/boost/
  * License:           GPL-2.0+
  * License URI:       http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain:       jetpack-boost
  * Domain Path:       /languages
- * Requires at least: 5.5
- * Requires PHP:      7.0
+ * Requires at least: 6.6
+ * Requires PHP:      7.2
  *
  * @package automattic/jetpack-boost
  */
@@ -26,10 +26,10 @@ namespace Automattic\Jetpack_Boost;
 
 // If this file is called directly, abort.
 if ( ! defined( 'WPINC' ) ) {
-	die;
+	die( 0 );
 }
 
-define( 'JETPACK_BOOST_VERSION', '3.2.3-alpha' );
+define( 'JETPACK_BOOST_VERSION', '3.9.0' );
 define( 'JETPACK_BOOST_SLUG', 'jetpack-boost' );
 
 if ( ! defined( 'JETPACK_BOOST_CLIENT_NAME' ) ) {
@@ -108,28 +108,27 @@ if ( is_readable( $boost_packages_path ) ) {
 		if ( get_current_screen()->id !== 'plugins' ) {
 			return;
 		}
-		?>
-		<div class="notice notice-error is-dismissible">
-			<p>
-				<?php
-				printf(
-					wp_kses(
-					/* translators: Placeholder is a link to a support document. */
-						__( 'Your installation of Jetpack Boost is incomplete. If you installed Jetpack Boost from GitHub, please refer to <a href="%1$s" target="_blank" rel="noopener noreferrer">this document</a> to set up your development environment. Jetpack Boost must have Composer dependencies installed and built via the build command.', 'jetpack-boost' ),
-						array(
-							'a' => array(
-								'href'   => array(),
-								'target' => array(),
-								'rel'    => array(),
-							),
-						)
+		$message = sprintf(
+			wp_kses(
+				/* translators: Placeholder is a link to a support document. */
+				__( 'Your installation of Jetpack Boost is incomplete. If you installed Jetpack Boost from GitHub, please refer to <a href="%1$s" target="_blank" rel="noopener noreferrer">this document</a> to set up your development environment. Jetpack Boost must have Composer dependencies installed and built via the build command.', 'jetpack-boost' ),
+				array(
+					'a' => array(
+						'href'   => array(),
+						'target' => array(),
+						'rel'    => array(),
 					),
-					'https://github.com/Automattic/jetpack/blob/trunk/docs/development-environment.md#building-your-project'
-				);
-				?>
-			</p>
-		</div>
-		<?php
+				)
+			),
+			'https://github.com/Automattic/jetpack/blob/trunk/docs/development-environment.md#building-your-project'
+		);
+		wp_admin_notice(
+			$message,
+			array(
+				'type'        => 'error',
+				'dismissible' => true,
+			)
+		);
 	}
 
 	add_action( 'admin_notices', __NAMESPACE__ . '\\jetpack_boost_admin_missing_files' );
@@ -139,6 +138,8 @@ if ( is_readable( $boost_packages_path ) ) {
 /**
  * Setup Minify service.
  */
+require_once JETPACK_BOOST_DIR_PATH . '/app/lib/minify/loader.php';
+
 // Potential improvement: Make concat URL dir configurable
 // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized
 if ( isset( $_SERVER['REQUEST_URI'] ) ) {
@@ -151,7 +152,7 @@ if ( isset( $_SERVER['REQUEST_URI'] ) ) {
 		define( 'JETPACK_BOOST_CONCAT_USE_WP', true );
 
 		require_once JETPACK_BOOST_DIR_PATH . '/serve-minified-content.php';
-		exit;
+		exit( 0 );
 	}
 }
 
@@ -184,10 +185,10 @@ add_action( 'activated_plugin', __NAMESPACE__ . '\jetpack_boost_plugin_activatio
 function jetpack_boost_plugin_activation( $plugin ) {
 	if (
 		JETPACK_BOOST_PLUGIN_BASE === $plugin &&
-		\Automattic\Jetpack\Plugins_Installer::is_current_request_activating_plugin_from_plugins_screen( JETPACK_BOOST_PLUGIN_BASE )
+		( new \Automattic\Jetpack\Paths() )->is_current_request_activating_plugin_from_plugins_screen( JETPACK_BOOST_PLUGIN_BASE )
 	) {
 		wp_safe_redirect( esc_url( admin_url( 'admin.php?page=jetpack-boost' ) ) );
-		exit;
+		exit( 0 );
 	}
 }
 
@@ -220,7 +221,7 @@ function include_compatibility_files() {
 		require_once __DIR__ . '/compatibility/web-stories.php';
 	}
 
-	if ( class_exists( '\Elementor\TemplateLibrary\Source_Local' ) ) {
+	if ( defined( '\Elementor\TemplateLibrary\Source_Local::CPT' ) || defined( '\Elementor\Modules\LandingPages\Module::CPT' ) ) {
 		require_once __DIR__ . '/compatibility/elementor.php';
 	}
 
@@ -242,6 +243,9 @@ function include_compatibility_files() {
 
 	// Exclude known scripts that causes problem when concatenated.
 	require_once __DIR__ . '/compatibility/js-concatenate.php';
+
+	// Migrate from WP Super Cache
+	require_once __DIR__ . '/compatibility/wp-super-cache-migration.php';
 }
 
 add_action( 'plugins_loaded', __NAMESPACE__ . '\include_compatibility_files' );

@@ -1,4 +1,7 @@
 <?php
+/**
+ * @package automattic/jetpack
+ */
 
 // This is WP_Test_REST_Controller_Testcase without the unneeded abstract methods.
 require_once __DIR__ . '/class-wp-test-spy-rest-server.php';
@@ -7,7 +10,7 @@ if ( defined( 'IS_WPCOM' ) && IS_WPCOM ) {
 	require_once dirname( __DIR__, 3 ) . '/core/includes/testcase-rest-api.php';
 }
 
-abstract class WP_Test_Jetpack_REST_Testcase extends WP_Test_REST_TestCase {
+abstract class WP_Test_Jetpack_REST_TestCase extends WP_Test_REST_TestCase {
 	protected $server;
 
 	/**

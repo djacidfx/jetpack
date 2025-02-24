@@ -8,7 +8,7 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-	exit; // Exit if accessed directly
+	exit( 0 ); // Exit if accessed directly
 }
 ?>
 <main class="jp-plugin-deactivation__dialog__content">
@@ -67,6 +67,10 @@ if ( ! defined( 'ABSPATH' ) ) {
 		border: none;
 
 		padding: 0 2rem 2rem;
+	}
+
+	#jp-plugin-deactivation-automattic-for-agencies-client footer .jp-plugin-deactivation__button {
+		font-size: 14px;
 	}
 
 	#jp-plugin-deactivation-automattic-for-agencies-client footer .jp-plugin-deactivation__button:first-child {

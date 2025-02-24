@@ -1,19 +1,19 @@
 /**
  * External dependencies
  */
-import classnames from 'classnames';
+import clsx from 'clsx';
 /**
  * Internal dependencies
  */
 import styles from './style.module.scss';
-import { ProgressBarProps } from './types';
+import { ProgressBarProps } from './types.js';
 import type React from 'react';
 
 /**
  * Progress Bar component
  *
  * @param {ProgressBarProps} props - Component props.
- * @returns {React.ReactNode} - ProgressBar react component.
+ * @return {React.ReactNode} - ProgressBar react component.
  */
 const ProgressBar: React.FC< ProgressBarProps > = ( {
 	className,
@@ -32,10 +32,8 @@ const ProgressBar: React.FC< ProgressBarProps > = ( {
 	};
 
 	return (
-		<div
-			className={ classnames( className, styles.wrapper, { [ styles.small ]: size === 'small' } ) }
-		>
-			<div className={ classnames( progressClassName, styles.progress ) } style={ style }></div>
+		<div className={ clsx( className, styles.wrapper, { [ styles.small ]: size === 'small' } ) }>
+			<div className={ clsx( progressClassName, styles.progress ) } style={ style }></div>
 		</div>
 	);
 };

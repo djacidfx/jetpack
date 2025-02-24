@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useRef } from 'react';
 import styles from './globals.module.scss';
-import { ThemeInstance, ThemeProviderProps } from './types';
+import { ThemeInstance, ThemeProviderProps } from './types.js';
 
 export const typography = {
 	// Headline
@@ -25,6 +25,7 @@ export const colors = {
 	// Gray
 	'--jp-gray': '#dcdcde',
 	'--jp-gray-0': '#F6F7F7',
+	'--jp-gray-5': 'var(--jp-gray)',
 	'--jp-gray-10': '#C3C4C7',
 	'--jp-gray-20': '#A7AAAD',
 	'--jp-gray-40': '#787C82',
@@ -110,8 +111,8 @@ const setup = ( root: HTMLElement, id: string, withGlobalStyles?: boolean ) => {
 /**
  * ThemeProvider React component.
  *
- * @param {ThemeProviderProps} props           - Component properties.
- * @returns {React.ReactNode}        ThemeProvider component.
+ * @param {ThemeProviderProps} props - Component properties.
+ * @return {React.ReactNode}        ThemeProvider component.
  */
 const ThemeProvider: React.FC< ThemeProviderProps > = ( {
 	children = null,

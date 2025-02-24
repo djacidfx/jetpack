@@ -32,7 +32,6 @@ class PHPAutoloaderTest extends TestCase {
 			->disableOriginalConstructor()
 			->getMock();
 
-		// @phan-suppress-next-line PhanTypeMismatchArgument -- It's correct, but PHPUnit 9.6 only declares `@psalm-template` and not `@template` and such so Phan can't know the right types.
 		( new PHP_Autoloader() )->register_autoloader( $loader );
 
 		$autoloaders = spl_autoload_functions();
@@ -73,7 +72,7 @@ class PHPAutoloaderTest extends TestCase {
 	public function test_load_class() {
 		$loader = $this->getMockBuilder( Version_Loader::class )
 			->disableOriginalConstructor()
-			->setMethods( array( 'find_class_file' ) )
+			->onlyMethods( array( 'find_class_file' ) )
 			->getMock();
 
 		global $jetpack_autoloader_loader;
@@ -93,7 +92,7 @@ class PHPAutoloaderTest extends TestCase {
 	public function test_load_class_does_nothing_without_class() {
 		$loader = $this->getMockBuilder( Version_Loader::class )
 			->disableOriginalConstructor()
-			->setMethods( array( 'find_class_file' ) )
+			->onlyMethods( array( 'find_class_file' ) )
 			->getMock();
 
 		global $jetpack_autoloader_loader;

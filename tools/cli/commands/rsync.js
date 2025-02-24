@@ -23,7 +23,7 @@ const rsyncConfigStore = new Configstore( 'automattic/jetpack-cli/rsync' );
  * as nested objects.
  *
  * @param { string } key - String of the destination key.
- * @returns { string } - Returns the key with escaped periods.
+ * @return { string } - Returns the key with escaped periods.
  */
 function escapeKey( key ) {
 	return key.replace( /\./g, '\\.' );
@@ -33,8 +33,8 @@ function escapeKey( key ) {
  * Stores the destination in the configstore.
  * Takes an optional alias arg.
  *
- * @param { string } pluginDestPath - Destination path to plugins.
- * @param { string|false } alias - Alias key, if set.
+ * @param { string }       pluginDestPath - Destination path to plugins.
+ * @param { string|false } alias          - Alias key, if set.
  */
 function setRsyncDest( pluginDestPath, alias = false ) {
 	const key = alias || pluginDestPath;
@@ -61,13 +61,37 @@ export async function rsyncInit( argv ) {
 	let finalDest;
 	if ( argv.dest.match( /\/(?:mu-)?plugins\/?$/ ) ) {
 		// Pull the actual plugin slug from composer.json.
-		const pluginComposerJson = await fs.readFile(
-			projectDir( `plugins/${ argv.plugin }/composer.json` )
+		const pluginComposerJson = JSON.parse(
+			await fs.readFile( projectDir( `plugins/${ argv.plugin }/composer.json` ) )
 		);
-		const wpPluginSlug = JSON.parse( pluginComposerJson ).extra[ 'wp-plugin-slug' ];
+		const wpPluginSlug =
+			pluginComposerJson?.extra?.[ 'wp-plugin-slug' ] ??
+			pluginComposerJson?.extra?.[ 'beta-plugin-slug' ];
+		if ( ! wpPluginSlug ) {
+			console.error( chalk.red( `Failed to determine plugin slug for ${ argv.plugin }.` ) );
+			process.exit( 1 );
+		}
 		finalDest = path.join( argv.dest, wpPluginSlug + '/' );
 	} else {
 		finalDest = path.join( argv.dest, '/' );
+	}
+
+	const untrackedFiles = await getUntrackedFiles( sourcePluginPath );
+	if ( untrackedFiles ) {
+		console.log( 'The below untracked files were detected in your plugin path:\n' );
+		console.log( untrackedFiles.replace( /^/gm, '  ' ) + '\n' );
+		await enquirer
+			.prompt( {
+				type: 'confirm',
+				name: 'ignoreUntracked',
+				message: 'Untracked files will not be synced. Proceed?',
+				initial: false,
+			} )
+			.then( answer => {
+				if ( ! answer.ignoreUntracked ) {
+					process.exit( 0 );
+				}
+			} );
 	}
 
 	if ( argv.watch ) {
@@ -79,6 +103,28 @@ export async function rsyncInit( argv ) {
 			}
 
 			const paths = await rsyncToDest( sourcePluginPath, finalDest );
+
+			// Warn but don't fail if file was intentionally not synced. We still want to sync
+			// if a change event occurs, as other change events could have been debounced.
+			if (
+				argv.v &&
+				event === 'change' &&
+				! paths.has( eventfile ) &&
+				! [ '../../../.git/index', '.gitignore', '.gitattributes' ].includes( eventfile ) // ignore some specific files
+			) {
+				let unsync_reason;
+				if ( ! ( await isFileTracked( sourcePluginPath + eventfile ) ) ) {
+					unsync_reason = 'not tracked by git';
+				} else if ( await isFileExcluded( sourcePluginPath + eventfile ) ) {
+					unsync_reason = 'excluded from production';
+				} else {
+					unsync_reason = 'something odd 🤷';
+				}
+				console.debug(
+					`Sync was triggered by a change to '${ eventfile }', but it was not synced.`
+				);
+				console.debug( `Reason: ${ unsync_reason }` );
+			}
 
 			// On some systems, using multiple 'watcher.add()' calls breaks the firing of the 'ready' event.
 			// Instead, we add all the paths to an array and call add() once.
@@ -233,7 +279,7 @@ async function promptToManageConfig() {
  * Fetch the list of files to rsync.
  *
  * @param {string} source - Source path.
- * @returns {Promise<Set>} List of paths.
+ * @return {Promise<Set>} List of paths.
  */
 async function collectPaths( source ) {
 	const paths = new Set();
@@ -247,9 +293,9 @@ async function collectPaths( source ) {
 /**
  * Add a file, and all directories containing it, to the set of paths.
  *
- * @param {string} file - File to add.
- * @param {Set} paths - Set of paths to add to.
- * @returns {void}
+ * @param {string} file  - File to add.
+ * @param {Set}    paths - Set of paths to add to.
+ * @return {void}
  */
 async function addFileToPathSet( file, paths ) {
 	// Rsync requires we also list all the directories containing the file.
@@ -266,8 +312,8 @@ async function addFileToPathSet( file, paths ) {
  *
  * @param {string} source - Source path.
  * @param {string} prefix - Source path prefix.
- * @param {Set} paths - Set to add paths into.
- * @returns {Promise<void>}
+ * @param {Set}    paths  - Set to add paths into.
+ * @return {Promise<void>}
  */
 async function addFilesToPathSet( source, prefix, paths ) {
 	// Include just the files that are published to the mirror.
@@ -307,8 +353,8 @@ async function addFilesToPathSet( source, prefix, paths ) {
  * Necessary when rsyncing development builds.
  *
  * @param {string} source - Source path.
- * @param {Set} paths - Set to add paths into.
- * @returns {void}
+ * @param {Set}    paths  - Set to add paths into.
+ * @return {void}
  */
 async function addVendorFilesToPathSet( source, paths ) {
 	const dirents = await fs.readdir( source, { withFileTypes: true } );
@@ -343,7 +389,7 @@ async function addVendorFilesToPathSet( source, paths ) {
  * Create a temporary rsync filter file.
  *
  * @param {Set} paths - Paths to rsync.
- * @returns {object} As from `tmp.fileSync()`.
+ * @return {object} As from `tmp.fileSync()`.
  */
 async function createFilterFile( paths ) {
 	const tmpFile = tmp.fileSync();
@@ -382,11 +428,92 @@ async function createFilterFile( paths ) {
 }
 
 /**
+ * Checks if file is tracked by git.
+ *
+ * @param {string} filePath - file path.
+ * @return {boolean} true if tracked, otherwise false.
+ */
+async function isFileTracked( filePath ) {
+	try {
+		await execa( 'git', [ 'ls-files', '--error-unmatch', filePath ] );
+		return true;
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Checks if file attribute is set to production-exclude by `.gitattributes`.
+ *
+ * @param {string} filePath - file path.
+ * @return {boolean} true if excluded, otherwise false.
+ */
+async function isFileExcluded( filePath ) {
+	try {
+		const { stdout } = await execa( 'git', [ 'check-attr', 'production-exclude', '--', filePath ] );
+		return stdout.split( ': ' )[ 2 ] === 'set';
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Get all untracked files in the plugin directory.
+ *
+ * @param {string} pluginPath - Path to plugin.
+ * @return {string} Files that aren't tracked.
+ */
+async function getUntrackedFiles( pluginPath ) {
+	const paths = [ pluginPath ];
+
+	// Add any Composer-symlinked vendor packages. Assumes the usual directory structure.
+	const cwd = await fs.realpath( process.cwd() );
+	for ( const dir of [ 'vendor', 'jetpack_vendor' ] ) {
+		const dirents = (
+			await fs.readdir( path.join( pluginPath, dir ), { withFileTypes: true } ).catch( () => [] )
+		).filter( e => e.isDirectory() );
+		for ( const dir2 of dirents ) {
+			const dirents2 = (
+				await fs
+					.readdir( path.join( dir2.parentPath, dir2.name ), { withFileTypes: true } )
+					.catch( () => [] )
+			).filter( e => e.isSymbolicLink() );
+			for ( const link of dirents2 ) {
+				try {
+					const rp = path.relative(
+						cwd,
+						await fs.realpath( path.join( link.parentPath, link.name ) )
+					);
+					if ( ! rp.startsWith( '..' + path.sep ) ) {
+						paths.push( rp );
+					}
+				} catch {
+					// Probably a broken symlink. Ignore it.
+				}
+			}
+		}
+	}
+
+	try {
+		const { stdout } = await execa( 'git', [
+			'ls-files',
+			'--others',
+			'--exclude-standard',
+			...paths,
+		] );
+		return stdout;
+	} catch ( e ) {
+		console.log( e );
+		console.error( chalk.red( 'Uh oh! ' + e.message ) );
+	}
+}
+
+/**
  * Function that does the actual work of rsync.
  *
  * @param {string} source - Source path.
- * @param {string} dest - Final destination path, including plugin slug.
- * @returns {Promise<Set>} Synced path set.
+ * @param {string} dest   - Final destination path, including plugin slug.
+ * @return {Promise<Set>} Synced path set.
  */
 async function rsyncToDest( source, dest ) {
 	const paths = await collectPaths( source );
@@ -470,7 +597,7 @@ async function promptForSetAlias( pluginDestPath ) {
  * Maybe prompts for the destination path if not already set or found a saved alias.
  *
  * @param {object} argv - Passthrough of the argv object.
- * @returns {object} argv object with the project property.
+ * @return {object} argv object with the project property.
  */
 async function maybePromptForDest( argv ) {
 	if ( rsyncConfigStore.has( argv.dest ) ) {
@@ -504,7 +631,7 @@ async function maybePromptForDest( argv ) {
 /**
  * Prompts for the destination.
  *
- * @returns {Promise<*|string>} - Destination path
+ * @return {Promise<*|string>} - Destination path
  */
 async function promptNewDest() {
 	const response = await enquirer.prompt( {
@@ -522,7 +649,7 @@ async function promptNewDest() {
  * If no type is passed via `options`, then it will prompt for the plugin.
  *
  * @param {object} argv - Passthrough of an object, meant to accept argv.
- * @returns {object} object with the type property appended.
+ * @return {object} object with the type property appended.
  */
 export async function maybePromptForPlugin( argv ) {
 	let whichPlugin = argv.plugin;
@@ -547,7 +674,7 @@ export async function maybePromptForPlugin( argv ) {
  * Make sure the plugin is actually here.
  *
  * @param {string} plugin - The plugin dirname in project/plugins/.
- * @returns {boolean} Whether it's found.
+ * @return {boolean} Whether it's found.
  */
 function validatePlugin( plugin ) {
 	if ( false === allProjectsByType( 'plugins' ).includes( `plugins/${ plugin }` ) ) {
@@ -562,7 +689,7 @@ function validatePlugin( plugin ) {
  * Command definition for the rsync subcommand.
  *
  * @param {object} yargs - The Yargs dependency.
- * @returns {object} Yargs with the rsync commands defined.
+ * @return {object} Yargs with the rsync commands defined.
  */
 export function rsyncDefine( yargs ) {
 	yargs.command(

@@ -13,7 +13,7 @@ use Automattic\Jetpack\Jetpack_Mu_Wpcom;
  * Displays a banner before the theme browser that links to the WP.com Theme Showcase.
  */
 function wpcom_themes_show_banner() {
-	if ( ! function_exists( 'wpcom_is_nav_redesign_enabled' ) || ! wpcom_is_nav_redesign_enabled() ) {
+	if ( get_option( 'wpcom_admin_interface' ) !== 'wp-admin' ) {
 		return;
 	}
 
@@ -60,12 +60,32 @@ function wpcom_themes_add_theme_showcase_menu() {
 		return;
 	}
 
-	// Bail on Simple sites, since "Appearance > Themes" already links to the Theme Showcase on those.
-	if ( defined( 'IS_WPCOM' ) && IS_WPCOM ) {
-		return;
-	}
-
 	$site_slug = wp_parse_url( home_url(), PHP_URL_HOST );
-	add_submenu_page( 'themes.php', esc_attr__( 'Theme Showcase', 'jetpack-mu-wpcom' ), __( 'Theme Showcase', 'jetpack-mu-wpcom' ), 'read', "https://wordpress.com/themes/$site_slug?ref=wpcom-themes-menu" );
+	add_submenu_page(
+		'themes.php',
+		esc_attr__( 'Theme Showcase', 'jetpack-mu-wpcom' ),
+		__( 'Theme Showcase', 'jetpack-mu-wpcom' ),
+		current_user_can( 'switch_themes' ) ? 'switch_themes' : 'edit_theme_options',
+		"https://wordpress.com/themes/$site_slug?ref=wpcom-themes-menu"
+	);
 }
 add_action( 'admin_menu', 'wpcom_themes_add_theme_showcase_menu' );
+
+/**
+ * Automatically opens the "Upload Theme" dialog on the theme installation page based on a 'wpcom-upload' query parameter.
+ */
+function wpcom_auto_open_upload_theme() {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended
+	if ( isset( $_GET['wpcom-upload'] ) && $_GET['wpcom-upload'] === '1' ) {
+		if ( ! current_user_can( 'install_themes' ) ) {
+			return;
+		}
+		add_filter(
+			'admin_body_class',
+			function ( $classes ) {
+				return $classes . ' show-upload-view ';
+			}
+		);
+	}
+}
+add_action( 'load-theme-install.php', 'wpcom_auto_open_upload_theme' );

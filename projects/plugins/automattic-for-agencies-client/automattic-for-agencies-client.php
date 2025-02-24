@@ -4,9 +4,9 @@
  * Plugin Name: Automattic for Agencies Client
  * Plugin URI: https://wordpress.org/plugins/automattic-for-agencies-client
  * Description: Securely connect your clients’ sites to the Automattic for Agencies Sites Dashboard. Manage your sites from one place and see what needs attention.
- * Version: 0.1.0-alpha
+ * Version: 0.4.0
  * Author: Automattic
- * Author URI: https://jetpack.com/
+ * Author URI: https://automattic.com/for-agencies/
  * License: GPLv2 or later
  * Text Domain: automattic-for-agencies-client
  *
@@ -30,7 +30,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 */
 
 if ( ! defined( 'ABSPATH' ) ) {
-	exit;
+	exit( 0 );
 }
 
 define( 'AUTOMATTIC_FOR_AGENCIES_CLIENT_DIR', plugin_dir_path( __FILE__ ) );
@@ -58,28 +58,27 @@ if ( is_readable( $jetpack_autoloader ) ) {
 	add_action(
 		'admin_notices',
 		function () {
-			?>
-		<div class="notice notice-error is-dismissible">
-			<p>
-				<?php
-				printf(
-					wp_kses(
-						/* translators: Placeholder is a link to a support document. */
-						__( 'Your installation of Automattic For Agencies Client is incomplete. If you installed Automattic For Agencies Client from GitHub, please refer to <a href="%1$s" target="_blank" rel="noopener noreferrer">this document</a> to set up your development environment. Automattic For Agencies Client must have Composer dependencies installed and built via the build command.', 'automattic-for-agencies-client' ),
-						array(
-							'a' => array(
-								'href'   => array(),
-								'target' => array(),
-								'rel'    => array(),
-							),
-						)
-					),
-					'https://github.com/Automattic/jetpack/blob/trunk/docs/development-environment.md#building-your-project'
-				);
-				?>
-			</p>
-		</div>
-			<?php
+			$message = sprintf(
+				wp_kses(
+					/* translators: Placeholder is a link to a support document. */
+					__( 'Your installation of Automattic For Agencies Client is incomplete. If you installed Automattic For Agencies Client from GitHub, please refer to <a href="%1$s" target="_blank" rel="noopener noreferrer">this document</a> to set up your development environment. Automattic For Agencies Client must have Composer dependencies installed and built via the build command.', 'automattic-for-agencies-client' ),
+					array(
+						'a' => array(
+							'href'   => array(),
+							'target' => array(),
+							'rel'    => array(),
+						),
+					)
+				),
+				'https://github.com/Automattic/jetpack/blob/trunk/docs/development-environment.md#building-your-project'
+			);
+			wp_admin_notice(
+				$message,
+				array(
+					'type'        => 'error',
+					'dismissible' => true,
+				)
+			);
 		}
 	);
 
@@ -108,10 +107,10 @@ add_action( 'activated_plugin', 'jetpack_starter_plugin_activation' );
 function jetpack_starter_plugin_activation( $plugin ) {
 	if (
 		AUTOMATTIC_FOR_AGENCIES_CLIENT_ROOT_FILE_RELATIVE_PATH === $plugin &&
-		\Automattic\Jetpack\Plugins_Installer::is_current_request_activating_plugin_from_plugins_screen( AUTOMATTIC_FOR_AGENCIES_CLIENT_ROOT_FILE_RELATIVE_PATH )
+		( new \Automattic\Jetpack\Paths() )->is_current_request_activating_plugin_from_plugins_screen( AUTOMATTIC_FOR_AGENCIES_CLIENT_ROOT_FILE_RELATIVE_PATH )
 	) {
 		wp_safe_redirect( esc_url( admin_url( 'options-general.php?page=' . AUTOMATTIC_FOR_AGENCIES_CLIENT_SLUG ) ) );
-		exit;
+		exit( 0 );
 	}
 }
 

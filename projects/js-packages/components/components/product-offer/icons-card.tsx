@@ -1,15 +1,15 @@
 import { Icon, plus } from '@wordpress/icons';
 import React, { Fragment } from 'react';
-import { getIconBySlug } from '../icons/index';
+import { getIconBySlug } from '../icons/index.js';
 import styles from './style.module.scss';
-import { IconsCardProps } from './types';
+import { IconsCardProps } from './types.js';
 
 /**
  * Icons composition for a bundle product,
  * based on the list of supported products.
  *
- * @param {IconsCardProps} props         - Component props.
- * @returns {React.ReactNode}      Bundle product icons react component.
+ * @param {IconsCardProps} props - Component props.
+ * @return {React.ReactNode}      Bundle product icons react component.
  */
 export const IconsCard: React.FC< IconsCardProps > = ( { products, icon, size = 24 } ) => {
 	if ( icon ) {

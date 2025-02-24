@@ -1,9 +1,12 @@
 import { __ } from '@wordpress/i18n';
+import { Button, getRedirectUrl } from '@automattic/jetpack-components';
 import styles from './support.module.scss';
+import { recordBoostEvent } from '$lib/utils/analytics';
 
 const Support = () => {
 	const openPaidSupport = () => {
-		const supportUrl = 'https://jetpackme.wordpress.com/contact-support/';
+		recordBoostEvent( 'support_contact_us_clicked', {} );
+		const supportUrl = getRedirectUrl( 'jetpack-boost-premium-support' );
 		window.open( supportUrl, '_blank' );
 	};
 
@@ -21,13 +24,9 @@ const Support = () => {
 						</p>
 					</div>
 					<div className={ styles.cta }>
-						<button
-							className="components-button jb-button jb-button--outline"
-							onClick={ openPaidSupport }
-							type="button"
-						>
+						<Button variant="secondary" onClick={ openPaidSupport }>
 							{ __( 'Contact Us', 'jetpack-boost' ) }
-						</button>
+						</Button>
 					</div>
 				</div>
 			</div>

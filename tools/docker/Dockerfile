@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 VOLUME ["/var/www/html"]
 
@@ -9,6 +9,9 @@ ARG PNPM_VERSION
 
 ENV LANG en_US.UTF-8
 ENV LC_ALL en_US.UTF-8
+
+# Bypass WP-CLI `--allow-root` check. Reworking the container to not run as root would be a lot of work for basically no benefit.
+ENV WP_CLI_ALLOW_ROOT=1
 
 WORKDIR /tmp
 
@@ -41,6 +44,7 @@ RUN --mount=type=cache,target=/var/lib/apt/lists/,sharing=private \
 		systemd-standalone-tmpfiles \
 		unzip \
 		vim \
+		xz-utils \
 		zip \
 	&& apt-get remove --purge --auto-remove -y gpg software-properties-common \
 	&& find /var/ -name '*-old' -delete && rm -rf /var/log/dpkg.log /var/log/alternatives.log /var/log/apt/ ~/.launchpadlib

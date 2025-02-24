@@ -13,7 +13,7 @@ use Automattic\Jetpack\CRM\Automation\Tests\Mocks\Dummy_Step;
 use Automattic\Jetpack\CRM\Automation\Triggers\Contact_Updated;
 use Automattic\Jetpack\CRM\Automation\Workflow_Exception;
 use Automattic\Jetpack\CRM\Entities\Contact;
-use Automattic\Jetpack\CRM\Tests\JPCRM_Base_Test_Case;
+use Automattic\Jetpack\CRM\Tests\JPCRM_Base_TestCase;
 
 require_once __DIR__ . '/tools/class-automation-faker.php';
 
@@ -22,9 +22,9 @@ require_once __DIR__ . '/tools/class-automation-faker.php';
  *
  * @since 6.2.0
  *
- * @covers Automattic\Jetpack\CRM\Automation
+ * @covers Automattic\Jetpack\CRM\Automation\Automation_Workflow
  */
-class Automation_Workflow_Test extends JPCRM_Base_Test_Case {
+class Automation_Workflow_Test extends JPCRM_Base_TestCase {
 
 	private $automation_faker;
 
@@ -184,7 +184,7 @@ class Automation_Workflow_Test extends JPCRM_Base_Test_Case {
 		$automation->init_workflows();
 
 		// Fake event data
-		$contact = $this->automation_faker->contact( false );
+		$contact = $this->automation_faker->contact();
 
 		// We expect the workflow to be executed on contact_created event with the contact data
 		$workflow->expects( $this->once() )

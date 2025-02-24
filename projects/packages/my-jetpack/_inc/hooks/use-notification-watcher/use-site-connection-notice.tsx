@@ -1,63 +1,56 @@
 import { Col, TermsOfService, Text } from '@automattic/jetpack-components';
-import { useConnection } from '@automattic/jetpack-connection';
 import { __, sprintf } from '@wordpress/i18n';
 import { useContext, useEffect } from 'react';
 import { MyJetpackRoutes } from '../../constants';
 import { NOTICE_PRIORITY_HIGH } from '../../context/constants';
 import { NoticeContext } from '../../context/notices/noticeContext';
-import { useAllProducts } from '../../data/products/use-product';
-import { getMyJetpackWindowRestState } from '../../data/utils/get-my-jetpack-window-state';
+import { useAllProducts } from '../../data/products/use-all-products';
+import useProductsByOwnership from '../../data/products/use-products-by-ownership';
 import getProductSlugsThatRequireUserConnection from '../../data/utils/get-product-slugs-that-require-user-connection';
+import useAnalytics from '../use-analytics';
+import useConnectSite from '../use-connect-site';
 import useMyJetpackConnection from '../use-my-jetpack-connection';
 import useMyJetpackNavigate from '../use-my-jetpack-navigate';
+import type { NoticeOptions } from '../../context/notices/types';
+import type { MouseEvent } from 'react';
 
 type RedBubbleAlerts = Window[ 'myJetpackInitialState' ][ 'redBubbleAlerts' ];
 
 const useSiteConnectionNotice = ( redBubbleAlerts: RedBubbleAlerts ) => {
+	const { recordEvent } = useAnalytics();
 	const { setNotice, resetNotice } = useContext( NoticeContext );
-	const { apiRoot, apiNonce } = getMyJetpackWindowRestState();
-	const { isRegistered, isUserConnected, hasConnectedOwner } = useMyJetpackConnection();
-	const { siteIsRegistering, handleRegisterSite } = useConnection( {
+	const { siteIsRegistering, isSiteConnected } = useMyJetpackConnection( {
 		skipUserConnection: true,
-		apiRoot,
-		apiNonce,
-		from: 'my-jetpack',
 	} );
 	const products = useAllProducts();
-	const navToConnection = useMyJetpackNavigate( MyJetpackRoutes.Connection );
+	const navToConnection = useMyJetpackNavigate( MyJetpackRoutes.ConnectionSkipPricing );
+	const redBubbleSlug = 'missing-connection';
+	const connectionError = redBubbleAlerts[ redBubbleSlug ];
+	const { connectSite } = useConnectSite( {
+		tracksInfo: {
+			event: 'jetpack_my_jetpack_site_connection_notice_cta',
+			properties: {},
+		},
+	} );
+
+	const { refetch: refetchOwnershipData } = useProductsByOwnership();
 
 	useEffect( () => {
-		if ( ! Object.keys( redBubbleAlerts ).includes( 'missing-site-connection' ) ) {
+		if ( ! connectionError ) {
 			return;
 		}
 
 		const productSlugsThatRequireUserConnection =
 			getProductSlugsThatRequireUserConnection( products );
-		const requiresUserConnection =
-			! hasConnectedOwner && ! isUserConnected && productSlugsThatRequireUserConnection.length > 0;
+		const requiresUserConnection = connectionError.type === 'user';
 
-		if ( ! requiresUserConnection && isRegistered ) {
-			return;
-		}
-
-		const onActionButtonClick = () => {
+		const onActionButtonClick = ( { e }: { e: MouseEvent< HTMLButtonElement > } ) => {
 			if ( requiresUserConnection ) {
+				recordEvent( 'jetpack_my_jetpack_user_connection_notice_cta_click' );
 				navToConnection();
+			} else {
+				connectSite( e );
 			}
-
-			handleRegisterSite().then( () => {
-				resetNotice();
-				setNotice( {
-					message: __( 'Your site has been successfully connected.', 'jetpack-my-jetpack' ),
-					options: {
-						level: 'success',
-						actions: [],
-						priority: NOTICE_PRIORITY_HIGH,
-						hideCloseButton: false,
-						onClose: resetNotice,
-					},
-				} );
-			} );
 		};
 
 		const oneProductMessage = sprintf(
@@ -90,15 +83,16 @@ const useSiteConnectionNotice = ( redBubbleAlerts: RedBubbleAlerts ) => {
 			title: __( 'Missing site connection', 'jetpack-my-jetpack' ),
 		};
 
-		const noticeOptions = {
-			level: 'info',
+		const noticeOptions: NoticeOptions = {
+			id: redBubbleSlug,
+			level: connectionError.is_error ? 'error' : 'info',
 			actions: [
 				{
 					label: requiresUserConnection
 						? userConnectionContent.buttonLabel
 						: siteConnectionContent.buttonLabel,
 					isLoading: siteIsRegistering,
-					loadingText: __( 'Conecting…', 'jetpack-my-jetpack' ),
+					loadingText: __( 'Connecting…', 'jetpack-my-jetpack' ),
 					onClick: onActionButtonClick,
 					noDefaultClasses: true,
 				},
@@ -106,6 +100,10 @@ const useSiteConnectionNotice = ( redBubbleAlerts: RedBubbleAlerts ) => {
 			// If this notice gets into a loading state, we want to show it above the rest
 			priority: NOTICE_PRIORITY_HIGH + ( siteIsRegistering ? 1 : 0 ),
 			isRedBubble: true,
+			tracksArgs: {
+				type: connectionError.type,
+				is_error: connectionError.is_error,
+			},
 		};
 
 		const messageContent = requiresUserConnection ? (
@@ -113,9 +111,7 @@ const useSiteConnectionNotice = ( redBubbleAlerts: RedBubbleAlerts ) => {
 		) : (
 			<Col>
 				<Text mb={ 2 }>{ siteConnectionContent.message }</Text>
-				<Text variant="body-extra-small">
-					<TermsOfService agreeButtonLabel={ siteConnectionContent.buttonLabel } />
-				</Text>
+				<TermsOfService agreeButtonLabel={ siteConnectionContent.buttonLabel } />
 			</Col>
 		);
 
@@ -125,16 +121,17 @@ const useSiteConnectionNotice = ( redBubbleAlerts: RedBubbleAlerts ) => {
 			options: noticeOptions,
 		} );
 	}, [
-		handleRegisterSite,
-		hasConnectedOwner,
-		isRegistered,
-		isUserConnected,
+		isSiteConnected,
+		connectSite,
 		navToConnection,
 		products,
+		recordEvent,
 		redBubbleAlerts,
 		resetNotice,
 		setNotice,
 		siteIsRegistering,
+		connectionError,
+		refetchOwnershipData,
 	] );
 };
 

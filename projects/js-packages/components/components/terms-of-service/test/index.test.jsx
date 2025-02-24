@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import TermsOfService from '..';
+import TermsOfService from '../index.js';
 
 describe( 'TermsofService', () => {
 	it( "references only 'the buttons above' if multipleButtons is true", () => {
@@ -24,7 +24,7 @@ describe( 'TermsofService', () => {
 				( content, { textContent } ) =>
 					content !== '' && // filter out parent/wrapper elements
 					textContent.startsWith(
-						`By clicking the ${ buttonLabel } button, you agree to our Terms of Service`
+						`By clicking ${ buttonLabel }, you agree to our Terms of Service`
 					)
 			)
 		).toBeInTheDocument();
@@ -42,11 +42,11 @@ describe( 'TermsofService', () => {
 
 	it( 'links to the data sharing document (single button)', () => {
 		render( <TermsOfService agreeButtonLabel={ 'whatever' } /> );
-		expect( screen.getByText( 'share details', { selector: 'a' } ) ).toBeInTheDocument();
+		expect( screen.getByText( 'sync your site‘s data', { selector: 'a' } ) ).toBeInTheDocument();
 	} );
 
 	it( 'links to the data sharing document (multiple buttons)', () => {
 		render( <TermsOfService multipleButtons /> );
-		expect( screen.getByText( 'share details', { selector: 'a' } ) ).toBeInTheDocument();
+		expect( screen.getByText( 'sync your site‘s data', { selector: 'a' } ) ).toBeInTheDocument();
 	} );
 } );

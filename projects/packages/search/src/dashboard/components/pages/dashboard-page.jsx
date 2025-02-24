@@ -23,9 +23,9 @@ import './dashboard-page.scss';
 /**
  * SearchDashboard component definition.
  *
- * @param {object} props - Component properties.
+ * @param {object} props           - Component properties.
  * @param {string} props.isLoading - should page show Loading spinner.
- * @returns {React.Component} Search dashboard component.
+ * @return {React.Component} Search dashboard component.
  */
 export default function DashboardPage( { isLoading = false } ) {
 	useSelect( select => select( STORE_ID ).getSearchPlanInfo(), [] );
@@ -40,7 +40,7 @@ export default function DashboardPage( { isLoading = false } ) {
 	const sendPaidPlanToCart = () => {
 		const checkoutProductUrl = getProductCheckoutUrl(
 			'jetpack_search',
-			blogID ?? domain,
+			blogID || domain,
 			`admin.php?page=jetpack-search&just_upgraded=1`,
 			true
 		);

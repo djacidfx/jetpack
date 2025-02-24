@@ -14,7 +14,7 @@ if ( defined( 'JETPACK__PLUGIN_DIR' ) && JETPACK__PLUGIN_DIR ) {
 /**
  * Automated testing of the post-by-email REST API.
  */
-class WP_Test_Post_By_Email_API extends WP_Test_Jetpack_REST_Testcase {
+class WP_Test_Post_By_Email_API extends WP_Test_Jetpack_REST_TestCase {
 
 	/**
 	 * User ID for the temporary admin user.
@@ -211,7 +211,7 @@ class WP_Test_Post_By_Email_API extends WP_Test_Jetpack_REST_Testcase {
 		if ( $user_id ) {
 			wp_set_current_user( $user_id );
 		}
-		$auth = $server->check_authentication( null );
+		$auth = $server->check_authentication();
 		if ( true === $auth ) {
 			return $result;
 		}

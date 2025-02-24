@@ -24,12 +24,6 @@ class Jetpack_AMP_Support {
 			add_action( 'amp_post_template_footer', array( 'Jetpack_AMP_Support', 'add_stats_pixel' ) );
 		}
 
-		/**
-		 * Remove this during the init hook in case users have enabled it during
-		 * the after_setup_theme hook, which triggers before init.
-		 */
-		remove_theme_support( 'jetpack-devicepx' );
-
 		// Sharing.
 		add_filter( 'jetpack_sharing_display_markup', array( 'Jetpack_AMP_Support', 'render_sharing_html' ), 10, 2 );
 		add_filter( 'sharing_enqueue_scripts', array( 'Jetpack_AMP_Support', 'amp_disable_sharedaddy_css' ) );
@@ -152,7 +146,7 @@ class Jetpack_AMP_Support {
 	 */
 	public static function disable_comment_likes_before_the_content( $content ) {
 		if ( self::is_amp_request() ) {
-			remove_filter( 'comment_text', 'comment_like_button', 12, 2 );
+			remove_filter( 'comment_text', 'comment_like_button', 12 );
 		}
 		return $content;
 	}
