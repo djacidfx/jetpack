@@ -1,17 +1,12 @@
 <?php
 /**
- * Stubs automatically generated from WooCommerce 8.7.0
+ * Stubs automatically generated from WooCommerce 9.9.5
  * using the definition file `tools/stubs/woocommerce-internal-stub-defs.php` in the Jetpack monorepo.
  *
  * Do not edit this directly! Run tools/stubs/update-stubs.sh to regenerate it.
  */
 
 namespace {
-    /**
-     * Product helpers.
-     *
-     * @package WooCommerce\Tests
-     */
     /**
      * Class WC_Helper_Product.
      *
@@ -43,13 +38,13 @@ namespace Automattic\WooCommerce\Internal\DataStores\Orders {
      */
     class CustomOrdersTableController
     {
-        use \Automattic\WooCommerce\Internal\Traits\AccessiblePrivateMethods;
     }
     /**
      * This class is the standard data store to be used when the custom orders table is in use.
      */
     class OrdersTableDataStore extends \Abstract_WC_Order_Data_Store_CPT implements \WC_Object_Data_Store_Interface, \WC_Order_Data_Store_Interface
     {
+        use \Automattic\WooCommerce\Internal\CostOfGoodsSold\CogsAwareTrait;
         /**
          * Get the custom orders table name.
          *
